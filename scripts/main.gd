@@ -8,6 +8,7 @@ var player: Player
 var bots: Array[Bot] = []
 var fx: Fx
 var hud: Hud
+var class_select: ClassSelect
 var free_cam: Camera3D
 var _pending: Array = []          # [{"actor": Actor, "t": float}]
 var _paused: bool = false
@@ -50,9 +51,19 @@ func _ready() -> void:
 	player.name = "Player"
 	add_child(player)
 	player.process_mode = Node.PROCESS_MODE_PAUSABLE
-	player.respawn(arena.random_spawn())
 	player.died.connect(_on_actor_died.bind(player))
 	Game.actors.append(player)
+
+	class_select = ClassSelect.new()
+	add_child(class_select)
+	class_select.chosen.connect(_on_class_chosen)
+
+	player.set_class(player.class_id)
+	if _interactive():
+		# opening lockout is 0: at match start there is nothing to wait for
+		class_select.show_for(player.class_id, 0.0)
+	else:
+		player.respawn(arena.random_spawn())
 
 	for i in Tuning.bot_count:
 		var b := Bot.new()
@@ -73,6 +84,7 @@ func _ready() -> void:
 	add_child(free_cam)
 	free_cam.process_mode = Node.PROCESS_MODE_PAUSABLE
 
+	Harness.register_shot_set("class", _shots_class)
 	Harness.register_shot_set("ads", _shots_ads)
 	Harness.register_shot_set("map", _shots_map)
 	Harness.register_shot_set("game", _shots_game)
@@ -149,7 +161,24 @@ func _on_match_started() -> void:
 		Audio.play("spawn", 1.0, -10.0)
 
 func _on_actor_died(_killer: Actor, who: Actor) -> void:
+	if who == player and _interactive():
+		# Bots respawn on a timer; you respawn when you have picked. The
+		# lockout keeps the death penalty honest, but you can choose during it
+		# and spawn the instant it expires.
+		class_select.show_for(player.class_id, Tuning.respawn_delay)
+		return
 	_pending.append({"actor": who, "t": Tuning.respawn_delay})
+
+func _on_class_chosen(id: String) -> void:
+	player.set_class(id)
+	player.respawn(arena.random_spawn(Game.actors))
+	Audio.play("spawn", 1.0, -10.0)
+
+## Screenshot and probe runs have nobody at the keyboard, so they must never
+## sit on a menu waiting for a key that will not come.
+func _interactive() -> bool:
+	return not Harness.active and not Harness.botfight and not Harness.want("movetest") \
+		and not Harness.want("bottest") and not Harness.want("hittest")
 
 # ------------------------------------------------------------------ harness
 func _use_free_cam(pos: Vector3, look: Vector3) -> void:
@@ -201,6 +230,18 @@ func _use_bot_shoulder_cam(a: Actor) -> void:
 ## so the frame lied: dead player, frozen ammo, gun floating over someone
 ## else's fight. Driving the real player through the real Motor and Weapon
 ## keeps every overlay honest, which is what the visual critics judge.
+## The class picker, at match start and mid-respawn with the lockout running.
+func _shots_class(h) -> void:
+	player.camera.current = true
+	viewmodel_visible(false)
+	class_select.show_for("trigger", 0.0)
+	await get_tree().create_timer(0.4).timeout
+	await h.capture("class_start", 3)
+	class_select.show_for("marksman", Tuning.respawn_delay)
+	await get_tree().create_timer(0.3).timeout
+	await h.capture("class_respawn", 3)
+	class_select.close()
+
 ## Locked aim-down-sights, one frame per weapon. The sight has to sit exactly on
 ## the camera axis, because that is where the bullet goes and the crosshair is
 ## hidden while aiming. Regression evidence for that alignment.

@@ -328,8 +328,9 @@ func _draw_ammo(size: Vector2) -> void:
 func _draw_weapon_list(size: Vector2) -> void:
 	var y := size.y * 0.74
 	var hints := ["[1]", "[2]", "[3]"]
-	for i in mini(3, WeaponDefs.LOADOUT.size()):
-		var key: String = WeaponDefs.LOADOUT[i]
+	var slots: Array = player.loadout if player else [WeaponDefs.SECONDARY]
+	for i in mini(3, slots.size()):
+		var key: String = String(slots[i])
 		var active: bool = key == weapon_key
 		var label: String = String(WeaponDefs.LIST[key]["display"])
 		var col: Color = WHITE if active else Color(1, 1, 1, 0.32)

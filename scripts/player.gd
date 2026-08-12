@@ -17,6 +17,9 @@ var _reload_total: float = 0.0
 var _step_dist: float = 0.0
 var _melee_cd: float = 0.0
 var _slot: int = 0
+## Primary from the chosen class, plus the pistol everyone carries.
+var loadout: Array = ["assault", WeaponDefs.SECONDARY]
+var class_id: String = "trigger"
 
 func _ready() -> void:
 	display_name = "YOU"
@@ -38,9 +41,9 @@ func _ready() -> void:
 	# the world as a child of the camera, so a long barrel can never clip
 	# through the wall you are standing against.
 	viewmodel = Viewmodel.build_rig(self)
-	viewmodel.build_for(WeaponDefs.LOADOUT[_slot])
+	viewmodel.build_for(loadout[_slot])
 
-	weapon.equip(WeaponDefs.LOADOUT[_slot])
+	weapon.equip(loadout[_slot])
 	weapon.fired.connect(_on_fired)
 	weapon.landed.connect(_on_landed)
 	weapon.missed.connect(_on_missed)
@@ -57,6 +60,17 @@ func _ready() -> void:
 	Game.weapon_changed.emit(weapon.def)
 	Game.ammo_changed.emit(weapon.mag, weapon.reserve)
 	Game.health_changed.emit(health, Tuning.max_health)
+
+## Applied on spawn. The primary comes from the class; the pistol is constant.
+func set_class(id: String) -> void:
+	class_id = id
+	loadout = [WeaponDefs.class_primary(id), WeaponDefs.SECONDARY]
+	_slot = 0
+	if weapon:
+		weapon.equip(loadout[0])
+		weapon.switch_left = 0.0
+	if viewmodel:
+		viewmodel.build_for(loadout[0])
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not input_enabled:
@@ -185,17 +199,17 @@ func _handle_actions() -> void:
 		viewmodel.punch(0.5)
 		Audio.play("switch", 0.8, -10.0)
 		weapon.try_melee()
-	for i in mini(3, WeaponDefs.LOADOUT.size()):
+	for i in mini(3, loadout.size()):
 		if Input.is_action_just_pressed("slot_%d" % (i + 1)):
 			_switch(i)
 	if Input.is_action_just_pressed("next_weapon"):
-		_switch((_slot + 1) % WeaponDefs.LOADOUT.size())
+		_switch((_slot + 1) % loadout.size())
 
 func _switch(i: int) -> void:
-	if i == _slot:
+	if i == _slot or i >= loadout.size():
 		return
 	_slot = i
-	var key: String = WeaponDefs.LOADOUT[i]
+	var key: String = String(loadout[i])
 	weapon.equip(key)
 	viewmodel.build_for(key)
 	Audio.play("switch", 1.0, -8.0)

@@ -52,9 +52,11 @@ LMB / RMB               fire / aim. Aiming hides the crosshair and puts the weap
                         aimed gives a pinpoint first shot
 R                       reload
 V                       melee
-1 2 3 / Q               weapon slots / cycle. The sniper has a real optic:
+1 / 2 / Q               primary, pistol, cycle. The sniper has a real optic:
                         a hollow scope you see through, a 2x-over-irons zoom
                         and its own hairline reticle
+1-4 or click            pick a class, at match start and on every respawn
+Space                   keep the class you had, and spawn the moment you can
 Tab                     scoreboard
 F5                      restart the match
 Esc                     pause and release the mouse
@@ -75,6 +77,13 @@ Those numbers are deliberately a third slower than the first tuning pass. At
 a half seconds, which read as frantic rather than fast and left no room to aim.
 The shape survived the cut: slide-hopping still roughly doubles your speed and
 covers 1.7x the ground of walking over the same three seconds.
+
+You pick a class before spawning. A class is only a primary weapon — everyone
+carries the pistol as a secondary, so no pick can leave you with no answer at
+close range. Triggerman takes the assault rifle, Run N Gun the SMG, Marksman
+the sniper, Spray N Pray the shotgun. Space keeps the class you already had,
+which is what you want on almost every respawn, so it is the fastest key on the
+screen.
 
 Five weapons, with damage and cadence taken from sourced Krunker numbers rather
 than invented: assault rifle, sniper, shotgun, SMG, pistol. Headshot multipliers

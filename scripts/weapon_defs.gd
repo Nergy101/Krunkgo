@@ -107,6 +107,30 @@ const LIST := {
 
 const LOADOUT := ["assault", "sniper", "shotgun", "smg", "pistol"]
 
+## A class is just a primary. Everyone carries the pistol as a secondary, so
+## no class can ever be left without an answer at close range.
+const SECONDARY := "pistol"
+
+const CLASSES := [
+	{"id": "trigger", "name": "TRIGGERMAN", "primary": "assault",
+		"blurb": "All-rounder. Punishes at any range."},
+	{"id": "rungun", "name": "RUN N GUN", "primary": "smg",
+		"blurb": "Fastest gun up close. Bring movement."},
+	{"id": "marksman", "name": "MARKSMAN", "primary": "sniper",
+		"blurb": "One shot, one kill. Hold the long lane."},
+	{"id": "spray", "name": "SPRAY N PRAY", "primary": "shotgun",
+		"blurb": "Devastating inside a room. Useless outside one."},
+]
+
+static func class_by_id(id: String) -> Dictionary:
+	for c in CLASSES:
+		if c["id"] == id:
+			return c
+	return CLASSES[0]
+
+static func class_primary(id: String) -> String:
+	return String(class_by_id(id)["primary"])
+
 static func get_def(key: String) -> Dictionary:
 	var d: Dictionary = LIST.get(key, LIST["assault"]).duplicate(true)
 	d["key"] = key
