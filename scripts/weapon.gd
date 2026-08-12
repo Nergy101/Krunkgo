@@ -88,15 +88,28 @@ func is_first_shot() -> bool:
 		return false
 	return owner_actor.motor.speed_flat < 0.6 and owner_actor.motor.grounded
 
+## How forgiving the movement penalty is. MOVE_FREE is the fraction of walk
+## speed you get for free; MOVE_RAMP is how much more speed takes it to reach
+## the full per-weapon penalty; MOVE_MAX caps it for slide-hop speeds.
+const MOVE_FREE := 0.40
+const MOVE_RAMP := 1.20
+const MOVE_MAX := 1.20
+const AIR_PENALTY := 1.30
+
 ## Current cone half-angle in degrees, before random sampling.
 func spread_degrees() -> float:
 	var base: float = lerpf(float(def["spread_hip"]), float(def["spread_ads"]), ads_amount)
 	var move: float = 0.0
 	if owner_actor:
 		var s: float = owner_actor.motor.speed_flat / maxf(1.0, Tuning.max_ground_speed)
-		move = float(def["spread_move"]) * clampf(s, 0.0, 1.6)
+		# Movement costs nothing below MOVE_FREE of walk speed, then ramps.
+		# Previously any motion at all was taxed from the first centimetre per
+		# second, so walking doubled the rifle's cone and the gun felt loose
+		# whenever you were not standing perfectly still.
+		var ramp: float = clampf((s - MOVE_FREE) / MOVE_RAMP, 0.0, MOVE_MAX)
+		move = float(def["spread_move"]) * ramp
 		if not owner_actor.motor.grounded:
-			move *= 1.8
+			move *= AIR_PENALTY
 	return base + move + bloom
 
 func try_fire() -> bool:
@@ -131,7 +144,7 @@ func try_fire() -> bool:
 	var r: Dictionary = def["recoil"]
 	recoil_pitch += deg_to_rad(float(r["up"])) * (1.0 - 0.35 * ads_amount)
 	recoil_yaw += deg_to_rad(float(r["side"])) * Game.rng.randf_range(-1.0, 1.0)
-	bloom = minf(bloom + float(def["spread_hip"]) * 0.22, float(def["spread_hip"]) * 1.6)
+	bloom = minf(bloom + float(def["spread_hip"]) * 0.15, float(def["spread_hip"]) * 1.1)
 	if mag <= 0:
 		start_reload()
 	return true

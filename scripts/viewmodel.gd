@@ -228,8 +228,8 @@ func update_view(delta: float, speed_ratio: float, grounded: bool, ads_amount: f
 		bob.x = sin(bob_t) * Tuning.view_bob_amount * 2.1 * speed_ratio
 		bob.y = -absf(cos(bob_t)) * Tuning.view_bob_amount * 2.4 * speed_ratio
 
-	sway = sway.lerp(look_delta * -0.030, clampf(delta * 11.0, 0.0, 1.0))
-	sway = sway.limit_length(0.055)
+	sway = sway.lerp(look_delta * -0.020, clampf(delta * 11.0, 0.0, 1.0))
+	sway = sway.limit_length(0.038)
 
 	kick = move_toward(kick, 0.0, delta * 2.4)
 	kick_rot = move_toward(kick_rot, 0.0, delta * 7.5)

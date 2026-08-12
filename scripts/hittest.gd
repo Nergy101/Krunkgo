@@ -227,6 +227,23 @@ func _run() -> void:
 			for p in r["points"]:
 				spread_r = maxf(spread_r, Vector2(p.x - body_pt.x, p.y - body_pt.y).length())
 		entry["hipfire_cone_radius_m_at_20m"] = snappedf(spread_r, 0.001)
+		# The cone the player actually fights with, sampled across the stances
+		# that matter. Everything else in this probe fires from a frozen
+		# shooter, so without this the movement penalty is never measured at
+		# all — which is exactly the thing that makes a weapon feel loose.
+		var stances := {}
+		for stance in [["still", 0.0, true], ["walk", Tuning.max_ground_speed, true],
+				["slidehop", Tuning.hard_speed_cap, true],
+				["airborne", Tuning.max_ground_speed, false]]:
+			shooter.motor.speed_flat = float(stance[1])
+			shooter.motor.grounded = bool(stance[2])
+			shooter.weapon.bloom = 0.0
+			shooter.weapon.ads = false
+			shooter.weapon.ads_amount = 0.0
+			stances[stance[0]] = snappedf(shooter.weapon.spread_degrees(), 0.01)
+		shooter.motor.speed_flat = 0.0
+		shooter.motor.grounded = true
+		entry["spread_deg_by_stance"] = stances
 		entry["pellets"] = int(def["pellets"])
 		per_weapon[key] = entry
 
