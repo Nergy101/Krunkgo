@@ -118,6 +118,13 @@ func _process(delta: float) -> void:
 			# kill to the victim itself and report_kill() scores it a suicide.
 			a.apply_damage(99999.0, null, Hitbox.Zone.BODY, a.global_position)
 
+	# Nothing respawns once the match is over. The intermission is six seconds
+	# long and combat used to run right through it: bots kept fighting under
+	# the MATCH OVER scoreboard, and a player who died in that window got the
+	# class picker on top of the final standings.
+	if not Game.running:
+		return
+
 	for entry in _pending:
 		entry["t"] -= delta
 	var ready_now := _pending.filter(func(e): return e["t"] <= 0.0)
@@ -163,6 +170,8 @@ func _on_match_started() -> void:
 		Audio.play("spawn", 1.0, -10.0)
 
 func _on_actor_died(_killer: Actor, who: Actor) -> void:
+	if not Game.running:
+		return          # match over: no queue, and no picker over the scoreboard
 	if who == player and _interactive():
 		# Bots respawn on a timer; you respawn when you have picked. The
 		# lockout keeps the death penalty honest, but you can choose during it

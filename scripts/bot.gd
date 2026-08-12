@@ -52,6 +52,10 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not alive:
 		return
+	if not Game.running:
+		# Intermission: stand down rather than fighting under the scoreboard.
+		motor.step(Vector3.ZERO, false, false, delta)
+		return
 	brain.think(delta, Game.actors)
 	_steer(delta)
 	_aim(delta)

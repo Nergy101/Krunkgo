@@ -187,10 +187,16 @@ func muzzle_flash(pos: Vector3, strength: float) -> void:
 	# on a distant bot covered half the screen when it was your own gun.
 	var cam := get_viewport().get_camera_3d()
 	var dist: float = cam.global_position.distance_to(pos) if cam else 1.0
-	q.scale = Vector3.ONE * clampf(dist * 0.11, 0.05, 0.55) * (0.7 + 0.5 * strength)
+	# Floor raised from 0.05: at contact range the clamp collapsed the quad to
+	# a ~5 cm sliver, so the loudest guns produced the smallest flash.
+	q.scale = Vector3.ONE * clampf(dist * 0.11, 0.14, 0.55) * (0.7 + 0.5 * strength)
 	q.rotation.z = randf() * TAU
 	q.visible = true
-	_fl_life[i] = 0.085
+	# Life scales with the weapon's own flash strength instead of a flat 0.085.
+	# A bolt-action fires once every 1.4 s and its flash died in five frames at
+	# 60 fps, so the gun with the highest muzzle_flash in the table was the one
+	# you never saw fire.
+	_fl_life[i] = 0.075 + 0.055 * strength
 
 ## Brass out of the breech. Uses the shooter's basis so casings fly to the
 ## right and slightly back, the way an ejection port throws them.

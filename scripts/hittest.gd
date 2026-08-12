@@ -10,6 +10,15 @@ extends Node
 ## do the zone multipliers produce the shots-to-kill the reference documents,
 ## how wide is the shotgun cone, and can a shooter ever hit itself.
 
+## Shots-to-kill straight out of reference/krunker-weapons.md, as {body, head}.
+## These live here as DATA because the probe used to derive its expectations
+## from weapon_defs.gd and then report that they matched: it could only ever
+## agree with itself. Two weapons were badly out and it said "ALL MATCH".
+const SOURCED_STK := {
+	"assault": [5, 3], "sniper": [1, 1], "smg": [6, 6],
+	"shotgun": [2, 2], "pistol": [5, 4],
+}
+
 const SHOTS_PER_CASE := 240
 const RANGES := [5.0, 20.0, 50.0, 100.0]
 const PLATFORM_Y := 700.0
@@ -172,7 +181,15 @@ func _run() -> void:
 		# inside every weapon's falloff start. At 20 m the SMG was already 4 m
 		# into its curve and read 16.65 instead of 18, which looks like a bug
 		# and is actually falloff doing its job.
-		await _place_dummy(10.0)
+		#
+		# The shotgun is the exception, because its reference figure is
+		# explicitly "2 shots POINT-BLANK". At 10 m its 6-degree cone covers a
+		# 2.1 m circle, so only about 1.6 of 5 pellets land on a 0.62 m torso
+		# and it read 7 shots to kill. That is the cone working, not the damage
+		# being wrong — but it is not the number the source is quoting.
+		var stk_dist: float = 3.0 if int(def.get("pellets", 1)) > 1 else 10.0
+		entry["stk_measured_at_m"] = stk_dist
+		await _place_dummy(stk_dist)
 		var body_pt: Vector3 = dummy.global_position + Vector3(0, 1.02, 0)
 		var head_pt: Vector3 = dummy.global_position + Vector3(0, 1.55, 0)
 		var zones: Dictionary = {}
@@ -213,6 +230,13 @@ func _run() -> void:
 		entry["avg_head_damage"] = snappedf(avg_head, 0.01)
 		entry["shots_to_kill_body"] = int(ceil(Tuning.max_health / maxf(0.01, avg_body)))
 		entry["shots_to_kill_head"] = int(ceil(Tuning.max_health / maxf(0.01, avg_head)))
+		# Compare against the document, not against ourselves.
+		var want: Array = SOURCED_STK.get(key, [])
+		if not want.is_empty():
+			entry["sourced_stk_body"] = want[0]
+			entry["sourced_stk_head"] = want[1]
+			entry["matches_source"] = entry["shots_to_kill_body"] == want[0] \
+				and entry["shots_to_kill_head"] == want[1]
 		var named: Dictionary = {}
 		for z in zones.keys():
 			named[["HEAD", "BODY", "LIMB"][int(z)]] = zones[z]

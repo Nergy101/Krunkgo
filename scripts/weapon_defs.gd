@@ -78,7 +78,12 @@ const LIST := {
 	"shotgun": {
 		"ads_fov": 0.85,
 		"display": "SHOTGUN",
-		"damage": 15.0, "hs_mult": 1.3, "limb_mult": 0.5, "pellets": 8,
+		# 5 pellets at 10 = 50 total, per the datamined "~50 total/shot at close
+		# range" and the 1.25x head multiplier (post-v5.6.9, down from 1.5).
+		# Was 8 x 15 = 120, which one-shot a 100 HP target point-blank where the
+		# reference needs two. Nothing caught it because the probe derived its
+		# expectations from these same numbers.
+		"damage": 10.0, "hs_mult": 1.25, "limb_mult": 0.5, "pellets": 5,
 		"interval": 0.800, "mag": 6, "reserve": 36, "reload": 2.40, "switch": 0.55,
 		"spread_hip": 6.0, "spread_ads": 4.2, "spread_move": 3.0,
 		"recoil": {"up": 2.2, "side": 0.8, "recover": 4.5},
@@ -92,7 +97,9 @@ const LIST := {
 	"pistol": {
 		"ads_fov": 0.7,
 		"display": "PISTOL",
-		"damage": 34.0, "hs_mult": 1.6, "limb_mult": 0.5, "pellets": 1,
+		# 20 damage, 1.5x head, per datamine: 5 shots to kill body, 4 to head.
+		# Was 34, which killed in 3.
+		"damage": 20.0, "hs_mult": 1.5, "limb_mult": 0.5, "pellets": 1,
 		"interval": 0.150, "mag": 12, "reserve": 72, "reload": 1.30, "switch": 0.28,
 		"spread_hip": 1.4, "spread_ads": 0.28, "spread_move": 0.8,
 		"recoil": {"up": 1.1, "side": 0.35, "recover": 8.0},

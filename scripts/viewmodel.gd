@@ -19,7 +19,15 @@ var rest_pos := Vector3(0.285, -0.205, -1.02)
 ## space. ADS then places the gun so this point lands exactly on the camera
 ## axis, i.e. dead centre of the screen, which is where the bullet goes.
 var sight_local := Vector3(0.0, 0.10, 0.0)
-const ADS_DEPTH := -0.56
+## Arms live under their own node so ADS can slide them out of frame. Held at
+## the rest offset they became a featureless brown wedge under the sight the
+## moment the gun came up to the camera axis.
+var _arms: Node3D
+## How far forward the gun sits when aimed. Pushed out from -0.56: at that
+## depth the camera sat right behind the stock, so aiming filled the bottom
+## third of the screen with one featureless slab of receiver and butt. Moving
+## along z keeps the sight on the camera axis, so alignment is unaffected.
+const ADS_DEPTH := -0.86
 var ads_pos := Vector3(0.0, -0.10, ADS_DEPTH)
 var rest_rot := Vector3(0.045, 0.150, -0.235)     # the cant
 var ads_rot := Vector3(0.0, 0.0, 0.0)
@@ -127,6 +135,8 @@ func build_for(key: String) -> void:
 		_model.queue_free()
 	_model = Node3D.new()
 	add_child(_model)
+	_arms = Node3D.new()
+	_model.add_child(_arms)
 	# Scaled up hard versus the first pass. In the reference shot the gun eats
 	# roughly the lower-right third of the screen; ours was a distant twig.
 	var gun := Color8(58, 61, 68)
@@ -156,6 +166,7 @@ func build_for(key: String) -> void:
 			_box(_model, Vector3(0.016, 0.042, 0.016), Vector3(0, 0.118, -0.52), brass) # front post
 			sight_local = Vector3(0, 0.118, -0.45)
 			_box(_model, Vector3(0.082, 0.030, 0.24), Vector3(0, -0.058, -0.42), grip_c)
+			_hands(Vector3(0, -0.135, 0.20), Vector3(0, -0.058, -0.40))
 			muzzle_z = -0.96
 		"sniper":
 			_box(_model, Vector3(0.09, 0.10, 1.00), Vector3(0, 0, -0.22), wood_d)
@@ -172,6 +183,7 @@ func build_for(key: String) -> void:
 			_box(_model, Vector3(0.06, 0.045, 0.14), Vector3(0.075, 0.055, 0.06), gun) # bolt handle
 			_box(_model, Vector3(0.08, 0.23, 0.13), Vector3(0, -0.17, 0.02), wood)     # grip
 			_box(_model, Vector3(0.08, 0.14, 0.36), Vector3(0, -0.02, 0.38), wood)     # stock
+			_hands(Vector3(0, -0.17, 0.02), Vector3(0, -0.06, -0.44))
 			muzzle_z = -1.20
 		"shotgun":
 			_box(_model, Vector3(0.135, 0.14, 0.74), Vector3(0, 0, -0.14), wood)
@@ -181,6 +193,7 @@ func build_for(key: String) -> void:
 			_box(_model, Vector3(0.085, 0.13, 0.30), Vector3(0, -0.02, 0.34), wood_d)
 			_box(_model, Vector3(0.03, 0.03, 0.03), Vector3(0, 0.075, -0.90), brass)
 			sight_local = Vector3(0, 0.075, -0.90)
+			_hands(Vector3(0, -0.16, 0.04), Vector3(0, -0.082, -0.44))
 			muzzle_z = -0.95
 		"smg":
 			_box(_model, Vector3(0.095, 0.115, 0.50), Vector3(0, 0, -0.06), gun)
@@ -190,6 +203,7 @@ func build_for(key: String) -> void:
 			_box(_model, Vector3(0.05, 0.075, 0.22), Vector3(0, 0.0, 0.28), dark)      # wire stock
 			_box(_model, Vector3(0.03, 0.055, 0.10), Vector3(0, 0.088, -0.24), dark)
 			sight_local = Vector3(0, 0.088, -0.24)
+			_hands(Vector3(0, -0.13, 0.17), Vector3(0, -0.115, -0.16))
 			muzzle_z = -0.56
 		_:
 			_box(_model, Vector3(0.08, 0.145, 0.34), Vector3(0, 0, -0.05), gun)
@@ -197,12 +211,39 @@ func build_for(key: String) -> void:
 			_box(_model, Vector3(0.072, 0.19, 0.105), Vector3(0, -0.16, 0.045), dark)
 			_box(_model, Vector3(0.025, 0.04, 0.03), Vector3(0, 0.078, -0.16), brass)
 			sight_local = Vector3(0, 0.078, -0.16)
+			_hands(Vector3(0, -0.16, 0.045), Vector3(0, -0.15, -0.02))
 			muzzle_z = -0.34
 	_muzzle.position = Vector3(0, 0.012, muzzle_z)
 	# Put the sight on the camera axis when aimed. Previously ads_pos was a
 	# hand-picked constant, so the sight picture sat well above the crosshair
 	# and the two disagreed about where the bullet was going.
 	ads_pos = Vector3(-sight_local.x, -sight_local.y, ADS_DEPTH)
+## Hands on the weapon. Every reference viewmodel shows forearms holding the
+## gun; ours floated in the SubViewport with nothing gripping it, which is the
+## loudest "not Krunker" tell left once the gun itself reads as a gun.
+##
+## Krunker's arms are CHUNKY and light tan, entering from the bottom-left and
+## bottom-centre and filling a real share of the lower frame (see
+## krunker_parkour_viewmodel_01.jpg). Two earlier attempts here used thin dark
+## sticks that read as detached debris floating beside the receiver.
+func _hands(grip: Vector3, fore: Vector3) -> void:
+	const SKIN := Color8(206, 152, 106)
+	const SKIN_D := Color8(170, 120, 82)
+	const CUFF := Color8(58, 60, 66)
+	# Support arm: up from the lower left into the handguard.
+	_box(_arms, Vector3(0.118, 0.118, 0.130), fore + Vector3(-0.016, -0.082, 0.016), SKIN)
+	_box(_arms, Vector3(0.108, 0.116, 0.330),
+		fore + Vector3(-0.070, -0.300, 0.226), SKIN_D, Vector3(0.72, 0.0, 0.26))
+	_box(_arms, Vector3(0.124, 0.128, 0.062),
+		fore + Vector3(-0.036, -0.156, 0.082), CUFF, Vector3(0.72, 0.0, 0.26))
+	# Trigger arm: up from the lower right into the grip. Kept clearly apart
+	# from the support arm — at full size the two merged into one brown slab
+	# across the bottom third of the frame.
+	_box(_arms, Vector3(0.104, 0.112, 0.118), grip + Vector3(0.008, -0.036, 0.008), SKIN)
+	_box(_arms, Vector3(0.100, 0.110, 0.320),
+		grip + Vector3(0.086, -0.246, 0.176), SKIN_D, Vector3(0.58, 0.0, -0.38))
+	_box(_arms, Vector3(0.116, 0.120, 0.060),
+		grip + Vector3(0.038, -0.120, 0.054), CUFF, Vector3(0.58, 0.0, -0.38))
 
 ## A square-section optic you can see through: four walls around an open bore,
 ## with a slightly proud ring at each end so it reads as a scope and not a
@@ -249,6 +290,11 @@ func update_view(delta: float, speed_ratio: float, grounded: bool, ads_amount: f
 	# aimed, which walked the sight off the camera axis and put the sight
 	# picture somewhere other than where the bullet was going.
 	var steady: float = 1.0 - ads_amount
+	# Slide the arms down and back as the gun comes up. At the rest offset they
+	# sat right under the sight during ADS and read as one featureless brown
+	# wedge; real aim-down-sights animations take the forearms out of frame.
+	if _arms:
+		_arms.position = Vector3(0.0, -0.30 * ads_amount, 0.16 * ads_amount)
 
 	# reload dips the gun out of frame and rolls it, then brings it back
 	var dip: float = sin(clampf(reload_t, 0.0, 1.0) * PI)

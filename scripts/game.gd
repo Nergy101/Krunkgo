@@ -117,7 +117,9 @@ func _announce_result() -> void:
 	if board.is_empty():
 		return
 	var top: Dictionary = board[0]
-	var tied: bool = board.size() > 1 and board[1]["kills"] == top["kills"] and int(top["kills"]) > 0
+	# The `kills > 0` guard meant a genuine 0-0 match skipped the tie branch
+	# entirely and crowned whoever happened to sort first as the winner.
+	var tied: bool = board.size() > 1 and board[1]["kills"] == top["kills"]
 	if tied:
 		announce.emit("MATCH OVER — DRAW", "match")
 	elif String(top["name"]) == "YOU":
