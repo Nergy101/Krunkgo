@@ -52,7 +52,9 @@ LMB / RMB               fire / aim. Aiming hides the crosshair and puts the weap
                         aimed gives a pinpoint first shot
 R                       reload
 V                       melee
-1 2 3 / Q               weapon slots / cycle
+1 2 3 / Q               weapon slots / cycle. The sniper has a real optic:
+                        a hollow scope you see through, a 2x-over-irons zoom
+                        and its own hairline reticle
 Tab                     scoreboard
 F5                      restart the match
 Esc                     pause and release the mouse

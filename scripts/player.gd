@@ -64,9 +64,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var mm := event as InputEventMouseMotion
 		_mouse_accum += mm.relative
-		yaw -= mm.relative.x * Tuning.mouse_sensitivity
-		pitch = clampf(pitch - mm.relative.y * Tuning.mouse_sensitivity,
-			-Tuning.pitch_limit, Tuning.pitch_limit)
+		# Scale with the zoom, or a 3.8x scope would swing 3.8x too fast and be
+		# unusable. This is the standard zoom-proportional model.
+		var sens: float = Tuning.mouse_sensitivity * (_fov_current / Tuning.fov)
+		yaw -= mm.relative.x * sens
+		pitch = clampf(pitch - mm.relative.y * sens, -Tuning.pitch_limit, Tuning.pitch_limit)
 
 ## Harness autopilot. Screenshots of a first-person shooter have to be taken
 ## from a first-person view that is actually fighting; with no input the player
@@ -219,7 +221,8 @@ func _update_camera(delta: float) -> void:
 	var over: float = (motor.speed_flat - Tuning.max_ground_speed) \
 		/ maxf(1.0, Tuning.hard_speed_cap - Tuning.max_ground_speed)
 	var target_fov: float = Tuning.fov + Tuning.fov_speed_bonus * clampf(over, 0.0, 1.0)
-	target_fov = lerpf(target_fov, Tuning.fov * Tuning.ads_fov_mult, weapon.ads_amount)
+	var ads_mult: float = float(weapon.def.get("ads_fov", Tuning.ads_fov_mult))
+	target_fov = lerpf(target_fov, Tuning.fov * ads_mult, weapon.ads_amount)
 	_fov_current = lerpf(_fov_current, target_fov, clampf(delta * 12.0, 0.0, 1.0))
 	camera.fov = _fov_current
 
@@ -228,6 +231,12 @@ func _update_camera(delta: float) -> void:
 		reload_t = 1.0 - (weapon.reload_left / _reload_total)
 	viewmodel.update_view(delta, speed_ratio, motor.grounded, weapon.ads_amount,
 		look_delta, reload_t)
+	# Fully scoped, the optic body would sit in the middle of its own sight
+	# picture. Once the scope overlay has taken over, drop the weapon entirely
+	# so the aperture shows clean world, which is what looking through a scope
+	# looks like.
+	var scoped: bool = bool(weapon.def.get("scoped", false))
+	viewmodel.visible = not (scoped and weapon.ads_amount > 0.55)
 	viewmodel.sync_size(Vector2i(get_viewport().get_visible_rect().size))
 
 # ------------------------------------------------------------------ feedback

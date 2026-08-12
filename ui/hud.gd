@@ -152,6 +152,9 @@ func _draw_hud() -> void:
 	if flash > 0.0:
 		root.draw_rect(Rect2(Vector2.ZERO, size), Color(0.8, 0.05, 0.05, flash * 0.26))
 
+	# The scope surround is opaque and covers the whole screen bar the aperture,
+	# so it has to go down before the HUD or it hides the match chip.
+	_draw_scope(size, c)
 	_draw_match_chip()
 	_draw_crosshair(c)
 	_draw_hitmarker(c)
@@ -213,6 +216,35 @@ func _draw_crosshair(c: Vector2) -> void:
 		var b: Vector2 = c + v * (gap + length)
 		root.draw_line(a + Vector2(1.5, 1.5), b + Vector2(1.5, 1.5), edge, 5.0)
 		root.draw_line(a, b, line, 2.6)
+
+## Looking through the sniper optic. The crosshair is hidden while aiming, so a
+## scoped weapon has to supply its own aim point or you are firing blind.
+## The surround is drawn as one very thick arc: Godot cannot punch a hole in a
+## filled rect, but a ring whose inner edge is the aperture and whose outer edge
+## runs past the corners gets there in a single call.
+func _draw_scope(size: Vector2, c: Vector2) -> void:
+	if player == null or player.weapon == null:
+		return
+	if not bool(player.weapon.def.get("scoped", false)):
+		return
+	var t: float = clampf(player.weapon.ads_amount * 1.25, 0.0, 1.0)
+	if t <= 0.01:
+		return
+	var r: float = minf(size.x, size.y) * 0.345
+	var band: float = size.length()
+	root.draw_arc(c, r + band * 0.5, 0.0, TAU, 96, Color(0, 0, 0, t), band)
+
+	# fine reticle: four hairlines with a gap, a centre dot, and range ticks
+	var line := Color(0.06, 0.06, 0.06, t)
+	for v in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+		root.draw_line(c + v * 26.0, c + v * r, line, 1.5)
+	for i in range(1, 4):
+		var y: float = c.y + float(i) * 26.0
+		var half: float = 9.0 - float(i) * 2.0
+		root.draw_line(Vector2(c.x - half, y), Vector2(c.x + half, y), line, 1.5)
+	root.draw_circle(c, 2.0, line)
+	# soft inner edge so the aperture does not read as a hard cut-out
+	root.draw_arc(c, r - 3.0, 0.0, TAU, 96, Color(0, 0, 0, t * 0.5), 6.0)
 
 func _draw_hitmarker(c: Vector2) -> void:
 	if hitmarker <= 0.0:

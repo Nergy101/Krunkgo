@@ -152,9 +152,13 @@ func build_for(key: String) -> void:
 		"sniper":
 			_box(_model, Vector3(0.09, 0.10, 1.00), Vector3(0, 0, -0.22), wood_d)
 			_box(_model, Vector3(0.052, 0.052, 0.52), Vector3(0, 0.010, -0.92), gun)
-			_box(_model, Vector3(0.085, 0.085, 0.34), Vector3(0, 0.125, -0.14), dark)  # scope
-			_box(_model, Vector3(0.05, 0.05, 0.10), Vector3(0, 0.125, -0.33), gun)
-			_box(_model, Vector3(0.10, 0.10, 0.03), Vector3(0, 0.125, -0.32), Color8(96, 178, 206))
+			# Scope as a hollow tube rather than a solid block, so you can
+			# actually see through the bore. Four walls around a 0.05 bore; the
+			# SubViewport has a transparent background, so the opening shows
+			# the world behind it instead of a painted-on lens.
+			_scope_tube(_model, Vector3(0, 0.125, -0.14), 0.34, 0.05, 0.019, dark, gun)
+			_box(_model, Vector3(0.028, 0.05, 0.03), Vector3(0, 0.075, -0.26), gun)  # front mount
+			_box(_model, Vector3(0.028, 0.05, 0.03), Vector3(0, 0.075, -0.02), gun)  # rear mount
 			sight_local = Vector3(0, 0.125, -0.30)
 			_box(_model, Vector3(0.035, 0.06, 0.06), Vector3(0, 0.075, -0.02), dark)   # bolt
 			_box(_model, Vector3(0.06, 0.045, 0.14), Vector3(0.075, 0.055, 0.06), gun) # bolt handle
@@ -191,6 +195,26 @@ func build_for(key: String) -> void:
 	# hand-picked constant, so the sight picture sat well above the crosshair
 	# and the two disagreed about where the bullet was going.
 	ads_pos = Vector3(-sight_local.x, -sight_local.y, ADS_DEPTH)
+
+## A square-section optic you can see through: four walls around an open bore,
+## with a slightly proud ring at each end so it reads as a scope and not a
+## length of pipe.
+func _scope_tube(parent: Node3D, centre: Vector3, length: float, bore: float,
+		wall: float, body: Color, rim: Color) -> void:
+	var off: float = bore * 0.5 + wall * 0.5
+	var outer: float = bore + wall * 2.0
+	_box(parent, Vector3(outer, wall, length), centre + Vector3(0, off, 0), body)
+	_box(parent, Vector3(outer, wall, length), centre + Vector3(0, -off, 0), body)
+	_box(parent, Vector3(wall, bore, length), centre + Vector3(-off, 0, 0), body)
+	_box(parent, Vector3(wall, bore, length), centre + Vector3(off, 0, 0), body)
+	for z in [-length * 0.5, length * 0.5]:
+		var r: float = outer + 0.012
+		var t: float = wall + 0.012
+		var ro: float = bore * 0.5 + t * 0.5
+		_box(parent, Vector3(r, t, 0.02), centre + Vector3(0, ro, z), rim)
+		_box(parent, Vector3(r, t, 0.02), centre + Vector3(0, -ro, z), rim)
+		_box(parent, Vector3(t, bore, 0.02), centre + Vector3(-ro, 0, z), rim)
+		_box(parent, Vector3(t, bore, 0.02), centre + Vector3(ro, 0, z), rim)
 
 func punch(amount: float) -> void:
 	kick = maxf(kick, amount)

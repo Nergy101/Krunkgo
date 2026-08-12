@@ -14,6 +14,9 @@ extends RefCounted
 ## spread_*     degrees of cone
 ## recoil       {"up": deg, "side": deg, "recover": deg/s}
 ## falloff      [start_m, end_m, min_mult]
+## ads_fov      multiplier on Tuning.fov while aimed. 0.62 is the ~1.9x that
+##              iron sights give; the sniper's 0.33 is a true optic, twice
+##              again as tight, and `scoped` swaps its reticle for a scope.
 ## -- everything below this line is FEEDBACK ONLY, not sourced ballistics --
 ## muzzle_flash strength fed to Fx.muzzle_flash() (light energy + flash quad size)
 ## shake        camera-shake magnitude read by player.gd
@@ -31,6 +34,7 @@ extends RefCounted
 
 const LIST := {
 	"assault": {
+		"ads_fov": 0.62,
 		"display": "ASSAULT RIFLE",
 		"damage": 23.0, "hs_mult": 1.5, "limb_mult": 0.5, "pellets": 1,
 		"interval": 0.130, "mag": 28, "reserve": 140, "reload": 1.50, "switch": 0.40,
@@ -44,6 +48,7 @@ const LIST := {
 		"vm_snap": 6.0, "vm_stiff": 260.0, "vm_damp": 22.0, "vm_twist": 0.30,
 	},
 	"sniper": {
+		"ads_fov": 0.33, "scoped": true,
 		"display": "SNIPER RIFLE",
 		"damage": 100.0, "hs_mult": 1.5, "limb_mult": 0.5, "pellets": 1,
 		"interval": 1.000, "mag": 3, "reserve": 24, "reload": 1.90, "switch": 0.70,
@@ -57,6 +62,7 @@ const LIST := {
 		"vm_snap": 11.0, "vm_stiff": 85.0, "vm_damp": 7.2, "vm_twist": 0.95,
 	},
 	"smg": {
+		"ads_fov": 0.7,
 		"display": "SUBMACHINE GUN",
 		"damage": 18.0, "hs_mult": 1.0, "limb_mult": 0.5, "pellets": 1,
 		"interval": 0.075, "mag": 30, "reserve": 180, "reload": 1.40, "switch": 0.32,
@@ -70,6 +76,7 @@ const LIST := {
 		"vm_snap": 3.6, "vm_stiff": 480.0, "vm_damp": 44.0, "vm_twist": 0.14,
 	},
 	"shotgun": {
+		"ads_fov": 0.85,
 		"display": "SHOTGUN",
 		"damage": 15.0, "hs_mult": 1.3, "limb_mult": 0.5, "pellets": 8,
 		"interval": 0.800, "mag": 6, "reserve": 36, "reload": 2.40, "switch": 0.55,
@@ -83,6 +90,7 @@ const LIST := {
 		"vm_snap": 10.0, "vm_stiff": 95.0, "vm_damp": 8.0, "vm_twist": 1.1,
 	},
 	"pistol": {
+		"ads_fov": 0.7,
 		"display": "PISTOL",
 		"damage": 34.0, "hs_mult": 1.6, "limb_mult": 0.5, "pellets": 1,
 		"interval": 0.150, "mag": 12, "reserve": 72, "reload": 1.30, "switch": 0.28,
