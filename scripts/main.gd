@@ -84,6 +84,7 @@ func _ready() -> void:
 	add_child(free_cam)
 	free_cam.process_mode = Node.PROCESS_MODE_PAUSABLE
 
+	Harness.register_shot_set("fx", _shots_fx)
 	Harness.register_shot_set("class", _shots_class)
 	Harness.register_shot_set("ads", _shots_ads)
 	Harness.register_shot_set("map", _shots_map)
@@ -230,6 +231,28 @@ func _use_bot_shoulder_cam(a: Actor) -> void:
 ## so the frame lied: dead player, frozen ammo, gun floating over someone
 ## else's fight. Driving the real player through the real Motor and Weapon
 ## keeps every overlay honest, which is what the visual critics judge.
+## Fire, then capture on the next frame. Transient feedback — muzzle flash,
+## tracer in flight, ejecting casing — lives for a few frames by design, so
+## captures taken at arbitrary moments always landed after it had expired and
+## no screenshot ever proved any of it worked.
+func _shots_fx(h) -> void:
+	player.camera.current = true
+	viewmodel_visible(true)
+	player.set_physics_process(false)
+	player.global_position = Vector3(-18, 1.0, -21)
+	player.yaw = -PI * 0.5
+	player.pitch = 0.0
+	for key in ["assault", "sniper", "shotgun"]:
+		player.loadout = [key, WeaponDefs.SECONDARY]
+		player.weapon.equip(key)
+		player.weapon.switch_left = 0.0
+		player.viewmodel.build_for(key)
+		await get_tree().create_timer(0.35).timeout
+		player.weapon.cooldown = 0.0
+		player.weapon.try_fire()
+		await get_tree().process_frame
+		await h.capture("fx_%s" % key, 1)
+
 ## The class picker, at match start and mid-respawn with the lockout running.
 func _shots_class(h) -> void:
 	player.camera.current = true

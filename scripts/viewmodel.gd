@@ -14,14 +14,14 @@ extends Node3D
 
 const VM_FOV := 62.0
 
-var rest_pos := Vector3(0.215, -0.170, -1.06)
+var rest_pos := Vector3(0.285, -0.205, -1.02)
 ## Filled per weapon in build_for(): where that model's sight sits in local
 ## space. ADS then places the gun so this point lands exactly on the camera
 ## axis, i.e. dead centre of the screen, which is where the bullet goes.
 var sight_local := Vector3(0.0, 0.10, 0.0)
 const ADS_DEPTH := -0.56
 var ads_pos := Vector3(0.0, -0.10, ADS_DEPTH)
-var rest_rot := Vector3(0.035, 0.130, -0.185)     # the cant
+var rest_rot := Vector3(0.045, 0.150, -0.235)     # the cant
 var ads_rot := Vector3(0.0, 0.0, 0.0)
 
 var kick: float = 0.0
@@ -134,21 +134,29 @@ func build_for(key: String) -> void:
 	var wood := Color8(122, 82, 46)
 	var wood_d := Color8(92, 60, 33)
 	var brass := Color8(198, 156, 74)
+	var grip_c := Color8(86, 74, 62)   # warm dark, reads apart from the receiver
 	var muzzle_z := -0.5
 
 	match key:
 		"assault":
-			_box(_model, Vector3(0.105, 0.125, 0.78), Vector3(0, 0, -0.16), gun)
-			_box(_model, Vector3(0.062, 0.062, 0.42), Vector3(0, 0.012, -0.72), dark)
-			_box(_model, Vector3(0.05, 0.05, 0.10), Vector3(0, 0.012, -0.95), gun)
-			_box(_model, Vector3(0.085, 0.26, 0.14), Vector3(0, -0.19, -0.02), dark)   # magazine
-			_box(_model, Vector3(0.075, 0.17, 0.10), Vector3(0, -0.15, 0.19), gun)     # grip
-			_box(_model, Vector3(0.07, 0.10, 0.30), Vector3(0, 0.005, 0.32), dark)     # stock
-			_box(_model, Vector3(0.035, 0.075, 0.16), Vector3(0, 0.10, -0.34), dark)   # sight block
-			_box(_model, Vector3(0.02, 0.05, 0.02), Vector3(0, 0.145, -0.55), brass)   # front post
-			sight_local = Vector3(0, 0.145, -0.45)
-			_box(_model, Vector3(0.11, 0.035, 0.22), Vector3(0, -0.075, -0.44), dark)  # handguard
-			muzzle_z = -1.00
+			# Slimmer receiver than the first pass. At 0.105 x 0.125 it was a
+			# solid wedge that hid the magazine, grip and stock behind it, so
+			# the gun did not parse as a gun at all — just a grey mass.
+			_box(_model, Vector3(0.072, 0.088, 0.72), Vector3(0, 0, -0.16), gun)
+			_box(_model, Vector3(0.046, 0.046, 0.40), Vector3(0, 0.010, -0.70), dark)
+			_box(_model, Vector3(0.038, 0.038, 0.09), Vector3(0, 0.010, -0.92), brass)
+			# magazine and grip pushed BELOW and canted so they clear the
+			# receiver silhouette instead of hiding inside it
+			_box(_model, Vector3(0.062, 0.24, 0.115), Vector3(0, -0.155, -0.02), dark,
+				Vector3(0.20, 0, 0))
+			_box(_model, Vector3(0.058, 0.16, 0.085), Vector3(0, -0.135, 0.20), grip_c,
+				Vector3(-0.28, 0, 0))
+			_box(_model, Vector3(0.055, 0.085, 0.28), Vector3(0, 0.004, 0.32), grip_c)  # stock
+			_box(_model, Vector3(0.030, 0.062, 0.13), Vector3(0, 0.075, -0.32), dark)   # sight block
+			_box(_model, Vector3(0.016, 0.042, 0.016), Vector3(0, 0.118, -0.52), brass) # front post
+			sight_local = Vector3(0, 0.118, -0.45)
+			_box(_model, Vector3(0.082, 0.030, 0.24), Vector3(0, -0.058, -0.42), grip_c)
+			muzzle_z = -0.96
 		"sniper":
 			_box(_model, Vector3(0.09, 0.10, 1.00), Vector3(0, 0, -0.22), wood_d)
 			_box(_model, Vector3(0.052, 0.052, 0.52), Vector3(0, 0.010, -0.92), gun)

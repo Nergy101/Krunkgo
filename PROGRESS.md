@@ -6,22 +6,48 @@ we act on the gaps, repeat. Exit is winning the comparison, never a round count.
 
 ---
 
-## Status
+## Status — critic round 2 complete
 
-| Piece | Critic r1 | Critic r2 | Latest action |
+All nine pieces have now been judged. It took six attempts: four critics died
+mid-analysis twice over, burning their budget on exhaustive pixel work and
+yielding nothing.
+
+| Piece | r1 | r2 | What r2 caught |
 |---|---|---|---|
-| Match flow | not judged | **OURS** | first piece to win; dead signals then wired to the HUD |
-| Movement feel | KRUNKER | KRUNKER | wall-jump added and now measured; cap freed to 26 |
-| Bot behaviour | KRUNKER | KRUNKER | cover-seeking added after `bot_leave_cover_chance` was found dead |
-| Hit registration | not judged | KRUNKER | shotgun measurement was broken by a zone-purity filter; fixed |
-| HUD | KRUNKER | KRUNKER | crosshair now measures right; ammo chip and bar pips added |
-| Block art + lighting | KRUNKER | agent died | r1 palette/env measurements applied |
-| Map geometry | KRUNKER | agent died | 25 -> ~150 props, stairwells, crenellation |
-| Weapon feedback | not judged | agent died | casings, per-weapon voices, travelling tracers |
-| Viewmodel | not judged | agent died | own SubViewport, no wall clipping |
+| Match flow | – | **OURS** | dead signals, since wired to the HUD |
+| Movement | KRUNKER | KRUNKER | wall-jump existed but no probe exercised it |
+| Bots | KRUNKER | KRUNKER | `bot_leave_cover_chance` declared and never referenced |
+| Hit registration | – | KRUNKER | zone-purity filter silently voided every shotgun measurement |
+| HUD | KRUNKER | KRUNKER | speed readout was chewing the bottom crosshair dash |
+| Art | KRUNKER | KRUNKER | ground reads cool and flat; sky too saturated |
+| Map | KRUNKER | KRUNKER | perimeter is monotonous; massing still sparse |
+| Weapon feedback | – | KRUNKER | **no effect appeared in any of 5 frames** |
+| Viewmodel | – | KRUNKER | rifle read as a grey wedge, hiding its own parts |
 
-Four round-2 critics died mid-analysis. Five reported, and **one said OURS** —
-the first piece to beat the bar.
+One OURS. The loop is doing its job.
+
+### The two bugs round 2 found that were invisible to us
+
+**Every muzzle flash was a screen-filling white slab.** The weapon critic noted
+no flash, tracer or casing appeared in any captured frame. Chasing that
+surfaced something far worse: Godot's billboard shader **discards node scale**
+unless `billboard_keep_scale` is set. Every resize of the flash quad had been
+silently ignored, so a 1x1 mesh rendered at full size half a metre from the
+lens — on every shot, in play, the whole time. Fixed, plus the quad now scales
+with camera distance so it subtends a constant angle.
+
+**Tracers were invisible.** At `TRACER_SPEED` 420 m/s a 20 m shot lived under
+50 ms, three frames at 60 fps. Dropped to 140 m/s with a longer segment; it now
+reads as a streak.
+
+Both were only findable because a critic insisted on evidence from the frames
+rather than from the source. `shotset=fx` now fires and captures on the next
+frame, so transient feedback is provable instead of assumed.
+
+**The rifle now parses as a rifle.** Its receiver box was so large it occluded
+the magazine, grip and stock behind it. Slimmed, with the magazine and grip
+canted clear of the silhouette and a fourth tone so the shape has internal
+contrast.
 
 ## The see-through bug — root cause
 

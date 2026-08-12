@@ -10,8 +10,12 @@ const BURST_POOL := 14
 const SHELL_POOL := 32
 const FLASH_POOL := 8
 
-const TRACER_SPEED := 420.0     # m/s of visible travel, not bullet speed
-const TRACER_LEN := 6.0
+## Visible travel speed, deliberately far below a bullet. At 420 m/s a 20 m
+## shot's tracer lived under 50 ms — three frames at 60 fps — so it was
+## effectively invisible and never appeared in a single captured frame. A
+## tracer exists to be seen; the round has already landed either way.
+const TRACER_SPEED := 140.0
+const TRACER_LEN := 11.0
 
 var _tracers: Array[MeshInstance3D] = []
 var _tr_from: PackedVector3Array = PackedVector3Array()
@@ -70,6 +74,10 @@ func _ready() -> void:
 	flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	flash_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	# Godot's billboard shader DISCARDS the node's scale unless this is set, so
+	# every resize was silently ignored and the 1x1 quad rendered at full size
+	# half a metre from the lens — a pale slab over most of the screen.
+	flash_mat.billboard_keep_scale = true
 	for i in FLASH_POOL:
 		var q := MeshInstance3D.new()
 		var qm := QuadMesh.new()
@@ -173,10 +181,16 @@ func muzzle_flash(pos: Vector3, strength: float) -> void:
 	_f_next = (_f_next + 1) % FLASH_POOL
 	var q: MeshInstance3D = _flashes[i]
 	q.global_position = pos
-	q.scale = Vector3.ONE * (0.30 + 0.34 * strength)
+	# Scale with distance to the camera so the flash always subtends about the
+	# same screen angle. It is a world-space billboard and the local player's
+	# muzzle sits ~0.5 m from the lens, so a fixed world size that looked right
+	# on a distant bot covered half the screen when it was your own gun.
+	var cam := get_viewport().get_camera_3d()
+	var dist: float = cam.global_position.distance_to(pos) if cam else 1.0
+	q.scale = Vector3.ONE * clampf(dist * 0.11, 0.05, 0.55) * (0.7 + 0.5 * strength)
 	q.rotation.z = randf() * TAU
 	q.visible = true
-	_fl_life[i] = 0.045
+	_fl_life[i] = 0.085
 
 ## Brass out of the breech. Uses the shooter's basis so casings fly to the
 ## right and slightly back, the way an ejection port throws them.
