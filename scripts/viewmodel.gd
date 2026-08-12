@@ -50,7 +50,12 @@ const ADS_ARM_DROP := {
 var _ads_arm_drop: float = 0.34
 var ads_pos := Vector3(0.0, -0.10, ADS_DEPTH)
 var rest_rot := Vector3(0.045, 0.150, -0.235)     # the cant
-var ads_rot := Vector3(0.0, 0.0, 0.0)
+## Krunker's signature is a CANTED, off-centre gun, and zeroing the cant on ADS
+## threw that away at exactly the moment the sight picture matters. The cant is
+## kept at ~40% while aimed; ads_pos below then solves for the ROTATED sight
+## position, so alignment survives the tilt instead of being bought by
+## flattening the gun into a vertical pillar.
+var ads_rot := Vector3(0.018, 0.060, -0.095)
 
 var kick: float = 0.0
 var kick_rot: float = 0.0
@@ -240,8 +245,12 @@ func build_for(key: String) -> void:
 	# hand-picked constant, so the sight picture sat well above the crosshair
 	# and the two disagreed about where the bullet was going.
 	var depth: float = float(ADS_DEPTH_BY_KEY.get(key, ADS_DEPTH))
-	_ads_arm_drop = float(ADS_ARM_DROP.get(key, 0.30))
-	ads_pos = Vector3(-sight_local.x, -sight_local.y, depth)
+	_ads_arm_drop = float(ADS_ARM_DROP.get(key, 0.34))
+	# Solve for where the sight ends up AFTER the ADS cant is applied. Using the
+	# unrotated sight_local only lands on the camera axis if the gun is
+	# perfectly upright, which is why the cant had to be zeroed before.
+	var aimed: Vector3 = Basis.from_euler(ads_rot) * sight_local
+	ads_pos = Vector3(-aimed.x, -aimed.y, depth)
 ## Hands on the weapon. Every reference viewmodel shows forearms holding the
 ## gun; ours floated in the SubViewport with nothing gripping it, which is the
 ## loudest "not Krunker" tell left once the gun itself reads as a gun.
@@ -254,8 +263,12 @@ func _hands(grip: Vector3, fore: Vector3) -> void:
 	const SKIN := Color8(206, 152, 106)
 	const SKIN_D := Color8(170, 120, 82)
 	const CUFF := Color8(58, 60, 66)
-	# Support arm: up from the lower left into the handguard.
-	_box(_arms, Vector3(0.118, 0.118, 0.130), fore + Vector3(-0.016, -0.082, 0.016), SKIN)
+	# Support arm: up from the lower left into the handguard. The fist is built
+	# from a palm, a knuckle row and a thumb rather than one block: under ADS
+	# only this arm stays, and a single cube read as a detached lump of flesh.
+	_box(_arms, Vector3(0.118, 0.100, 0.126), fore + Vector3(-0.016, -0.082, 0.016), SKIN)
+	_box(_arms, Vector3(0.122, 0.038, 0.118), fore + Vector3(-0.018, -0.030, 0.020), SKIN_D)
+	_box(_arms, Vector3(0.046, 0.062, 0.052), fore + Vector3(0.040, -0.058, -0.030), SKIN)
 	_box(_arms, Vector3(0.108, 0.116, 0.330),
 		fore + Vector3(-0.070, -0.300, 0.226), SKIN_D, Vector3(0.72, 0.0, 0.26))
 	_box(_arms, Vector3(0.124, 0.128, 0.062),

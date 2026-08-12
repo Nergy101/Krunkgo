@@ -95,11 +95,25 @@ static func _perimeter_detail(b: Array) -> void:
 		var tp: Vector3 = t[0]
 		var extra: float = t[1]
 		var fp: float = t[2]
-		_box(b, tp, Vector3(fp, H + extra, fp), "wall_b")
+		# Burg's towers stack setback tiers; ours were a single box with a
+		# crenellation ring on top, which is why they read as stubs however
+		# much the footprint varied. Tall ones get a narrower second tier.
+		var h1: float = H + extra
+		_box(b, tp, Vector3(fp, h1, fp), "wall_b")
+		var top: float = h1
+		if fp >= 3.0 and extra >= 2.0:
+			var inset: float = 0.5
+			var fp2: float = fp - inset * 2.0
+			_box(b, tp + Vector3(inset, h1, inset), Vector3(fp2, 1.6, fp2), "wall_a")
+			_box(b, tp + Vector3(inset - 0.3, h1 + 1.6, inset - 0.3),
+				Vector3(fp2 + 0.6, 0.4, fp2 + 0.6), "roof_alt")   # projecting cornice
+			top = h1 + 2.0
+			fp = fp2 + 0.6
+			tp = tp + Vector3(inset - 0.3, 0.0, inset - 0.3)
 		var step: float = fp - 1.0
 		for ci in 2:
 			for cj in 2:
-				_box(b, tp + Vector3(ci * step, H + extra, cj * step),
+				_box(b, tp + Vector3(ci * step, top, cj * step),
 					Vector3(1, 1.6, 1), "wall_c")
 
 # ------------------------------------------------------------------- regions
@@ -511,11 +525,26 @@ static func _flat_roof(b: Array, p: Vector3, s: Vector3, key: String) -> void:
 ## Single-slope shed roof: steps up along x only, so it reads as a lean-to
 ## rather than a pyramid and gives the silhouette an asymmetric edge.
 static func _shed_roof(b: Array, p: Vector3, s: Vector3, key: String) -> void:
-	var steps: int = maxi(2, int(s.x / 2.0))
-	var run: float = s.x / float(steps)
+	# Equal 0.6 m steps made this converge with _pitched_roof at oblique range:
+	# both read as a stair of identical boxes. The run LENGTHENS as it climbs
+	# and the top is one long low slab, so the profile is a shallow ramp into a
+	# flat cap rather than another staircase.
+	var steps: int = 3
+	var total: float = 0.0
+	var runs: Array = []
 	for i in steps:
-		_box(b, Vector3(p.x + run * float(i), p.y + float(i) * 0.6, p.z),
-			Vector3(run, 0.6 + float(i) * 0.6, s.z), key)
+		var r: float = 1.0 + float(i) * 1.4
+		runs.append(r)
+		total += r
+	var scale: float = s.x / total
+	var x: float = 0.0
+	for i in steps:
+		var run: float = float(runs[i]) * scale
+		_box(b, Vector3(p.x + x, p.y + float(i) * 0.5, p.z),
+			Vector3(run, 0.5 + float(i) * 0.5, s.z), key)
+		x += run
+	# eaves overhang: a thin lip past the low edge, which no pyramid has
+	_box(b, Vector3(p.x - 0.5, p.y, p.z - 0.4), Vector3(1.0, 0.3, s.z + 0.8), key)
 
 static func _pitched_roof(b: Array, p: Vector3, s: Vector3, key: String) -> void:
 	var steps: int = int(minf(s.x, s.z) / 2.0)
