@@ -8,14 +8,21 @@ extends Node
 ## Touch only your own block.
 
 # ------------------------------------------------------------------ MOVEMENT
-var gravity: float = 24.0
-var max_ground_speed: float = 11.0
-var ground_accel: float = 95.0
+#
+# The whole envelope was scaled down about a third after play testing: base
+# 11 m/s with a 26 m/s slide-hop peak crossed the 64 m arena in ~2.5 s, which
+# read as frantic rather than fast and left no time to aim. The SHAPE is
+# unchanged — walking is still brisk, the diagonal strafe bonus is still
+# Krunker's documented 1.2x, and chaining slide-hops still roughly doubles
+# your speed — everything just happens at a pace you can fight at.
+var gravity: float = 22.0
+var max_ground_speed: float = 7.5
+var ground_accel: float = 70.0
 var ground_friction: float = 8.5
-var stop_speed: float = 3.0
-var air_accel: float = 55.0
-var air_speed_cap: float = 1.6          # quake-style strafe accel window
-var jump_velocity: float = 7.6
+var stop_speed: float = 2.5
+var air_accel: float = 42.0
+var air_speed_cap: float = 1.3          # quake-style strafe accel window
+var jump_velocity: float = 6.8          # apex ~1.05 m, still clears a crate
 var jump_buffer: float = 0.12
 var coyote_time: float = 0.09
 var auto_bhop: bool = true
@@ -30,15 +37,12 @@ var crouch_eye_height: float = 0.92
 var crouch_speed_mult: float = 0.45
 var stance_lerp: float = 14.0
 
-var slide_min_speed: float = 6.0
-var slide_gain: float = 1.12            # multiplicative, so hops compound
-var slide_boost: float = 1.9
-# Raised from 19.5: at that value the chain saturated by the third hop, which
-# made hard_speed_cap unreachable and flattened the skill curve. The reference
-# describes the practical ceiling as set by player execution, not a constant.
-# Equal to hard_speed_cap on purpose: the reference describes the ceiling as
-# set by player execution, not by a constant the chain slams into early.
-var slide_speed_cap: float = 26.0
+var slide_min_speed: float = 4.5
+var slide_gain: float = 1.10            # multiplicative, so hops compound
+var slide_boost: float = 1.25
+# Equal to hard_speed_cap on purpose: the ceiling should be set by how well you
+# chain hops, not by a lower constant the chain slams into after three of them.
+var slide_speed_cap: float = 16.5
 # reference/krunker-movement.md section 4: about a quarter second to re-jump
 # out of a slide before friction takes the speed back.
 var slide_rejump_window: float = 0.25
@@ -52,11 +56,11 @@ var slide_cooldown: float = 0.14
 # Wall-jump. reference/krunker-movement.md section 6: a class-defining
 # traversal mechanic, limited to a few consecutive kicks and reset by touching
 # the floor. Charges are restored on landing, never mid-air.
-var wall_jump_velocity: float = 7.2
-var wall_jump_push: float = 6.0
+var wall_jump_velocity: float = 6.4
+var wall_jump_push: float = 4.4
 var wall_jump_charges: int = 2
 
-var hard_speed_cap: float = 26.0
+var hard_speed_cap: float = 16.5
 
 var mouse_sensitivity: float = 0.0022
 var pitch_limit: float = 1.5533         # ~89 degrees
@@ -67,7 +71,7 @@ var fov_speed_bonus: float = 9.0
 var ads_fov_mult: float = 0.62
 var ads_time: float = 0.11
 var view_bob_amount: float = 0.022
-var view_bob_speed: float = 13.0
+var view_bob_speed: float = 11.0
 var land_kick: float = 0.10
 var roll_amount: float = 0.028          # ~1.6 degrees of lean per strafe
 

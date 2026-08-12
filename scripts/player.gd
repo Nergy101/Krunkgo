@@ -151,7 +151,7 @@ func _physics_process(delta: float) -> void:
 		Audio.play("land", randf_range(0.9, 1.1), -10.0 + motor.landed_hard * 6.0)
 	if motor.grounded and motor.speed_flat > 1.0 and not motor.sliding:
 		_step_dist += motor.speed_flat * delta
-		if _step_dist > 2.6:
+		if _step_dist > 2.0:
 			_step_dist = 0.0
 			Audio.play("step", randf_range(0.85, 1.2), -19.0)
 

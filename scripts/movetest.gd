@@ -85,9 +85,14 @@ func _physics_process(delta: float) -> void:
 
 	match phase:
 		Phase.WALK:
-			# plain forward run, no jumping: establishes the baseline
+			# Plain forward run, no jumping: the baseline. Discard the first
+			# second so this measures three seconds at speed, exactly like the
+			# hop phase — otherwise the distance ratio compares a 4 s window
+			# against a 3 s one and flatters whichever is longer.
 			m.step(fwd, false, false, delta)
 			peak_walk = maxf(peak_walk, m.speed_flat)
+			if t < 1.0:
+				start_pos = player.global_position
 			if t >= 4.0:
 				walk_distance = start_pos.distance_to(player.global_position)
 				_reset(Phase.HOP)

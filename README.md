@@ -45,7 +45,7 @@ with instructions rather than pretending to succeed.
 WASD                    move — holding two keys gives the 1.2x diagonal strafe bonus
 Space                   jump; hold it, auto-bhop is on
 Shift                   slide
-Shift + Space           slide-hop. Chains to 26 m/s from a base of 11
+Shift + Space           slide-hop. Chains to 16.5 m/s from a base of 7.5
 Space into a wall       wall-jump, two charges, restored on landing
 LMB / RMB               fire / aim. Standing still and aimed gives a pinpoint first shot
 R                       reload
@@ -56,15 +56,21 @@ F5                      restart the match
 Esc                     pause and release the mouse
 ```
 
-The number under the crosshair is your speed. Watch it climb past 110 while
-slide-hopping — that readout is where Krunker puts it too.
+The number under the crosshair is your speed. Watch it climb from 75 to 165
+while slide-hopping — that readout is where Krunker puts it too.
 
 ## How it plays
 
-Movement is the skill expression, as it is in Krunker. Walking is 11 m/s;
-chaining jump into slide into jump compounds to the 26 m/s ceiling over about
+Movement is the skill expression, as it is in Krunker. Walking is 7.5 m/s;
+chaining jump into slide into jump compounds to the 16.5 m/s ceiling over about
 five hops, and holding two direction keys is worth exactly 1.2x, which is the
 documented Krunker default. There is no sprint key.
+
+Those numbers are deliberately a third slower than the first tuning pass. At
+11 m/s base and a 26 m/s peak you crossed the whole 64 m arena in about two and
+a half seconds, which read as frantic rather than fast and left no room to aim.
+The shape survived the cut: slide-hopping still roughly doubles your speed and
+covers 1.7x the ground of walking over the same three seconds.
 
 Five weapons, with damage and cadence taken from sourced Krunker numbers rather
 than invented: assault rifle, sniper, shotgun, SMG, pistol. Headshot multipliers
