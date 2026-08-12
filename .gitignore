@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------- Godot 4
+# Import cache and generated resources. Rebuilt by `make import`.
+.godot/
+# Legacy Godot 3 import dir, harmless to keep listed
+.import/
+*.translation
+
+# ---------------------------------------------------------------- builds
+# `make release` output
+build/
+# Mono/C# artefacts. No C# in this project today, but the Mono editor build
+# will drop these the moment anyone adds a script.
+.mono/
+bin/
+obj/
+*.csproj.user
+
+# ---------------------------------------------------------------- generated evidence
+# Screenshots and probe JSON from `tools/round.sh`. Roughly 8 MB per round and
+# fully reproducible with `make round`, so there is no reason to version them.
+shots/
+
+# ---------------------------------------------------------------- third-party reference
+# reference/bar/ holds real Krunker.io gameplay screenshots (official Steam
+# store captures and in-engine map renders from the wiki). They are somebody
+# else's copyrighted material, gathered purely as a comparison target while
+# building this, so they are deliberately NOT redistributed here.
+# SOURCES.md lists every URL — re-fetch them locally if you want to run the
+# visual critique. Delete these two lines if you have cleared the rights.
+reference/bar/*
+!reference/bar/SOURCES.md
+
+# ---------------------------------------------------------------- os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# ---------------------------------------------------------------- notes
+# export_presets.cfg IS committed on purpose: `make release` needs it and this
+# one carries no signing identity, keystore path or password. If you add
+# codesigning credentials, move them out or start ignoring this file.

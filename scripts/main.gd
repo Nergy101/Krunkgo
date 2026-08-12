@@ -1,0 +1,209 @@
+extends Node3D
+## Assembles the whole game: sky, sun, arena, fx, hud, player, bots, and the
+## respawn loop. Also registers the harness shot sets so every critic compares
+## identical camera angles round to round.
+
+var arena: MapBuilder
+var player: Player
+var bots: Array[Bot] = []
+var fx: Fx
+var hud: Hud
+var free_cam: Camera3D
+var _pending: Array = []          # [{"actor": Actor, "t": float}]
+var _paused: bool = false
+
+const BOT_NAMES := ["ZANE", "KRUX", "VOLT", "NIKO", "BRIX", "AXEL", "MERC", "ODIN",
+	"RUSK", "JETT", "CLAW", "PIKE"]
+const VOID_Y := -20.0   # fall below this and it counts as an out-of-bounds death
+
+func _ready() -> void:
+	# Keeps running while get_tree().paused so the pause/restart keys still
+	# work; every child below gets its own explicit PAUSABLE so pause still
+	# freezes the actual game instead of cascading ALWAYS down to them.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+	# Connect before the first reset_match(): Game.actors is still empty at
+	# that call, so the handler no-ops and every actor below gets exactly one
+	# spawn from its own creation code. The connection only matters for real
+	# restarts (post-intermission, F5), which happen once actors exist.
+	Game.match_started.connect(_on_match_started)
+	Game.reset_match()
+
+	WorldEnv.build(self)
+
+	arena = MapBuilder.new()
+	add_child(arena)
+	arena.build()
+	arena.process_mode = Node.PROCESS_MODE_PAUSABLE
+	Game.arena = arena
+
+	fx = Fx.new()
+	add_child(fx)
+	fx.process_mode = Node.PROCESS_MODE_PAUSABLE
+	Game.fx = fx
+
+	hud = Hud.new()
+	add_child(hud)
+	hud.process_mode = Node.PROCESS_MODE_PAUSABLE
+
+	player = Player.new()
+	player.name = "Player"
+	add_child(player)
+	player.process_mode = Node.PROCESS_MODE_PAUSABLE
+	player.respawn(arena.random_spawn())
+	player.died.connect(_on_actor_died.bind(player))
+	Game.actors.append(player)
+
+	for i in Tuning.bot_count:
+		var b := Bot.new()
+		b.display_name = BOT_NAMES[i % BOT_NAMES.size()]
+		b.tint = Blockman.team_tint(i)
+		b.name = "Bot_" + b.display_name
+		b.loadout_index = i
+		add_child(b)
+		b.process_mode = Node.PROCESS_MODE_PAUSABLE
+		b.respawn(arena.random_spawn(_living_others(b)))
+		b.died.connect(_on_actor_died.bind(b))
+		bots.append(b)
+		Game.actors.append(b)
+
+	free_cam = Camera3D.new()
+	free_cam.fov = Tuning.fov
+	free_cam.far = 400.0
+	add_child(free_cam)
+	free_cam.process_mode = Node.PROCESS_MODE_PAUSABLE
+
+	Harness.register_shot_set("map", _shots_map)
+	Harness.register_shot_set("game", _shots_game)
+	Harness.register_shot_set("default", _shots_game)
+
+	if Harness.botfight:
+		player.input_enabled = false
+	if not Harness.active and not Harness.botfight:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# Headless probes self-register under a flag. Guarded by ResourceLoader so a
+	# probe file that does not exist yet is simply skipped.
+	for probe in ["movetest", "bottest", "hittest"]:
+		var path := "res://scripts/%s.gd" % probe
+		if Harness.want(probe) and ResourceLoader.exists(path):
+			add_child(load(path).new())
+
+
+func _process(delta: float) -> void:
+	if Input.is_action_just_pressed("ui_pause"):
+		_toggle_pause()
+	if Input.is_action_just_pressed("restart"):
+		_restart()
+	if _paused:
+		return
+
+	for a in Game.actors:
+		if is_instance_valid(a) and a.is_alive() and a.global_position.y < VOID_Y:
+			# Fall/out-of-bounds death: no attacker, so Actor._die() credits the
+			# kill to the victim itself and report_kill() scores it a suicide.
+			a.apply_damage(99999.0, null, Hitbox.Zone.BODY, a.global_position)
+
+	for entry in _pending:
+		entry["t"] -= delta
+	var ready_now := _pending.filter(func(e): return e["t"] <= 0.0)
+	_pending = _pending.filter(func(e): return e["t"] > 0.0)
+	for e in ready_now:
+		var a: Actor = e["actor"]
+		if is_instance_valid(a):
+			a.respawn(arena.random_spawn(_living_others(a)))
+			if a == player:
+				Audio.play("spawn", 1.0, -10.0)
+
+## Every other tracked actor, so a respawn never scores a candidate against
+## itself (its old, about-to-be-overwritten position).
+func _living_others(exclude: Actor) -> Array:
+	var out: Array = []
+	for a in Game.actors:
+		if a != exclude and is_instance_valid(a):
+			out.append(a)
+	return out
+
+func _toggle_pause() -> void:
+	_paused = not _paused
+	get_tree().paused = _paused
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if _paused else Input.MOUSE_MODE_CAPTURED
+
+## Clean, in-place restart: no scene reload. Unpauses first so a paused
+## restart does not leave the game frozen underneath the fresh match.
+func _restart() -> void:
+	if _paused:
+		_toggle_pause()
+	Game.reset_match()
+
+## Fires on every Game.match_started — first boot (no-op, no actors exist
+## yet), the post-intermission auto-restart, and a manual F5 restart. Clears
+## any respawn timers left over from the old match and puts everyone back in
+## play immediately.
+func _on_match_started() -> void:
+	_pending.clear()
+	for a in Game.actors:
+		if is_instance_valid(a):
+			a.respawn(arena.random_spawn(_living_others(a)))
+	if is_instance_valid(player):
+		Audio.play("spawn", 1.0, -10.0)
+
+func _on_actor_died(_killer: Actor, who: Actor) -> void:
+	_pending.append({"actor": who, "t": Tuning.respawn_delay})
+
+# ------------------------------------------------------------------ harness
+func _use_free_cam(pos: Vector3, look: Vector3) -> void:
+	free_cam.global_position = pos
+	free_cam.look_at(look, Vector3.UP)
+	free_cam.current = true
+	# The viewmodel is a CanvasLayer composite, so it keeps drawing over
+	# whichever 3D camera is current. Map shots must not have a gun in them.
+	viewmodel_visible(false)
+
+func viewmodel_visible(v: bool) -> void:
+	var layer := get_node_or_null("ViewmodelLayer")
+	if layer == null and is_instance_valid(player):
+		layer = player.get_node_or_null("ViewmodelLayer")
+	if layer:
+		layer.visible = v
+
+func _shots_map(h) -> void:
+	for cam in MapData.review_cameras():
+		_use_free_cam(cam["pos"], cam["look"])
+		await h.capture("map_" + String(cam["name"]), 4)
+
+## An actual bot mid-fight, chosen fresh for each shot. Under the harness the
+## local player has no input (frozen HP/ammo, nothing on screen), so its POV
+## is a static picture of a wall — the fight is the only thing worth shooting.
+func _pick_engaged_bot() -> Bot:
+	var candidates: Array = bots.filter(_is_engaged_bot)
+	if candidates.is_empty():
+		return null
+	return candidates[Game.rng.randi() % candidates.size()]
+
+func _is_engaged_bot(b: Bot) -> bool:
+	if not is_instance_valid(b) or not b.alive or b.brain.state != BotBrain.State.ENGAGE:
+		return false
+	return is_instance_valid(b.brain.target) and b.brain.target.alive
+
+## Shoulder cam: behind and above the bot's eye, pitched down its own aim
+## vector, so the frame reads as "this bot, mid-fight" rather than a random
+## spectator angle.
+func _use_bot_shoulder_cam(a: Actor) -> void:
+	var eye := a.eye_position()
+	var aim := a.aim_dir()
+	free_cam.global_position = eye - aim * 2.2 + Vector3(0, 0.8, 0)
+	free_cam.look_at(eye + aim * 6.0, Vector3.UP)
+	free_cam.current = true
+
+## First-person, from a player that is actually fighting. A shoulder cam on a
+## bot showed combat but paired it with the local player's HUD and viewmodel,
+## so the frame lied: dead player, frozen ammo, gun floating over someone
+## else's fight. Driving the real player through the real Motor and Weapon
+## keeps every overlay honest, which is what the visual critics judge.
+func _shots_game(h) -> void:
+	player.enable_autopilot()
+	player.camera.current = true
+	viewmodel_visible(true)
+	for i in 5:
+		await get_tree().create_timer(1.4).timeout
+		await h.capture("game_%d" % i, 3)
