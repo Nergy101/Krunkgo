@@ -60,6 +60,12 @@ var wall_jump_velocity: float = 6.4
 var wall_jump_push: float = 4.4
 var wall_jump_charges: int = 2
 
+## Ledges up to this tall are walked over, no jump needed. One map block is
+## 1.0, so this clears a single block with margin. Anything taller is a wall
+## you have to jump, which keeps stair stacks readable as traversal and walls
+## readable as cover.
+var step_height: float = 1.05
+
 var hard_speed_cap: float = 16.5
 
 var mouse_sensitivity: float = 0.0022

@@ -39,6 +39,7 @@ var wall_jumped_this_tick: bool = false
 ## documented at roughly a quarter second; this is what enforces it explicitly
 ## rather than leaning on the generic coyote/buffer timers.
 var since_landing: float = 999.0
+var step_cd: float = 0.0
 
 func setup(b: CharacterBody3D, s: CollisionShape3D) -> void:
 	body = b
@@ -66,6 +67,7 @@ func step(wish_dir: Vector3, want_jump: bool, want_crouch: bool, delta: float) -
 	coyote = Tuning.coyote_time if grounded else maxf(0.0, coyote - delta)
 	jump_buffered = Tuning.jump_buffer if want_jump else maxf(0.0, jump_buffered - delta)
 	slide_cd = maxf(0.0, slide_cd - delta)
+	step_cd = maxf(0.0, step_cd - delta)
 
 	# The diagonal bonus lives in the length of the intent vector.
 	var wish_speed_mult: float = minf(wish_dir.length(), Tuning.strafe_bonus)
@@ -112,6 +114,7 @@ func step(wish_dir: Vector3, want_jump: bool, want_crouch: bool, delta: float) -
 		body.velocity = Vector3(f.x, v.y, f.z)
 
 	body.move_and_slide()
+	_step_up(dir)
 	var nv := body.velocity
 	speed_flat = Vector3(nv.x, 0.0, nv.z).length()
 
@@ -139,6 +142,51 @@ func _wall_jump() -> void:
 		flat = flat.normalized() * Tuning.hard_speed_cap
 	body.velocity.x = flat.x
 	body.velocity.z = flat.z
+
+## Walk over a single-block ledge instead of stopping dead against it.
+##
+## CharacterBody3D handles slopes but has no step-up, so a 1.0 m stair riser —
+## half the player's height — blocked you completely and every staircase had to
+## be jumped. This probes up, forward, then down: if there is headroom, clear
+## space over the lip, and something to land on within step_height, the body is
+## placed on it. Horizontal velocity is preserved, so a stair climb does not
+## cost you your slide-hop chain.
+func _step_up(dir: Vector3) -> void:
+	if not body.is_on_wall():
+		return
+	if not grounded and coyote <= 0.0:
+		return
+	# Use the INTENDED direction, not the post-collision velocity. move_and_slide
+	# has already zeroed the horizontal component against the riser by the time
+	# this runs, so testing velocity meant the step never triggered at all.
+	if dir.length_squared() < 0.01 or step_cd > 0.0:
+		return
+	# Only climb things we are deliberately walking INTO. Bots strafe along
+	# walls constantly; without this they were being lifted a metre every time
+	# they brushed one, ending up on crates and roofs, and lobby engagement
+	# collapsed from 52% to 16%.
+	var n: Vector3 = body.get_wall_normal()
+	n.y = 0.0
+	if n.length_squared() > 0.0001 and dir.normalized().dot(-n.normalized()) < 0.5:
+		return
+	var start: Transform3D = body.global_transform
+	var lift := Vector3.UP * Tuning.step_height
+	if body.test_move(start, lift):
+		return                                  # no headroom to rise into
+	var up_t: Transform3D = start.translated(lift)
+	var reach: float = capsule.radius + 0.12
+	if body.test_move(up_t, dir * reach):
+		return                                  # still solid up there: a wall
+	var fwd_t: Transform3D = up_t.translated(dir * reach)
+	var land := KinematicCollision3D.new()
+	var drop := Vector3.DOWN * (Tuning.step_height + 0.05)
+	if not body.test_move(fwd_t, drop, land):
+		return                                  # nothing to stand on
+	var travel: Vector3 = land.get_travel()
+	if absf(travel.y) >= Tuning.step_height + 0.04:
+		return                                  # it was a hole, not a step
+	body.global_position = fwd_t.origin + travel
+	step_cd = 0.12
 
 func _jump() -> void:
 	jump_buffered = 0.0

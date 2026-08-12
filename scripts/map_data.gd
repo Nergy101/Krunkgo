@@ -254,10 +254,13 @@ static func _clutter(b: Array) -> void:
 
 static func spawns() -> Array:
 	return [
-		Vector3(-28, 0, -28), Vector3(28, 0, 28), Vector3(-28, 0, 28),
-		Vector3(28, 0, -28), Vector3(0, 0, 28), Vector3(-16, 0, -28),
+		# Pulled in from +/-28: the perimeter towers were widened from a 4 to a
+		# 5 and 6 footprint and swallowed all four corner spawns, so a third of
+		# all spawns trapped the actor inside solid rock.
+		Vector3(-23, 0, -23), Vector3(23, 0, 23), Vector3(-23, 0, 23),
+		Vector3(20, 0, -8), Vector3(0, 0, 28), Vector3(-16, 0, -28),
 		Vector3(20, 0, 20), Vector3(-22, 0, 0), Vector3(8, 0, 24),
-		Vector3(24, 0, 0), Vector3(0, 4, 6), Vector3(-14, 0, 16),
+		Vector3(29, 0, 0), Vector3(0, 4, 6), Vector3(-17, 0, 25),
 	]
 
 ## Fixed angles so critics compare like with like every round. Each one is

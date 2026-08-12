@@ -46,14 +46,44 @@ func build() -> void:
 		cs.position = b["p"] + b["s"] * 0.5
 		static_body.add_child(cs)
 
-	spawn_points = MapData.spawns()
+	spawn_points = _usable_spawns(MapData.spawns(), boxes)
 	_bake_nav()
+
+## Drop any spawn point buried in geometry.
+##
+## Widening the perimeter towers silently swallowed four of the twelve spawns,
+## and the only symptom was three bots sitting at 95% idle in the behaviour
+## probe. Geometry and spawns are authored in different functions, so nothing
+## connected them; this does, at load, every time.
+func _usable_spawns(points: Array, boxes: Array) -> Array:
+	var good: Array = []
+	for pt in points:
+		var lo := Vector3(pt.x - 0.45, pt.y + 0.05, pt.z - 0.45)
+		var hi := Vector3(pt.x + 0.45, pt.y + Tuning.stand_height, pt.z + 0.45)
+		var blocked := false
+		for b in boxes:
+			var bp: Vector3 = b["p"]
+			var bs: Vector3 = b["s"]
+			if lo.x < bp.x + bs.x and hi.x > bp.x \
+					and lo.y < bp.y + bs.y and hi.y > bp.y \
+					and lo.z < bp.z + bs.z and hi.z > bp.z:
+				blocked = true
+				break
+		if blocked:
+			push_warning("MapBuilder: spawn %s is inside geometry, dropped" % pt)
+		else:
+			good.append(pt)
+	if good.is_empty():
+		push_error("MapBuilder: every spawn point is blocked")
+		return points
+	print("SPAWNCHECK ", JSON.stringify({"total": points.size(), "usable": good.size()}))
+	return good
 
 func _bake_nav() -> void:
 	var nm := NavigationMesh.new()
 	nm.agent_radius = 0.45
 	nm.agent_height = 1.8
-	nm.agent_max_climb = 0.55
+	nm.agent_max_climb = 1.05   # matches Tuning.step_height, so bots use stairs too
 	nm.agent_max_slope = 46.0
 	nm.cell_size = 0.2
 	nm.cell_height = 0.1

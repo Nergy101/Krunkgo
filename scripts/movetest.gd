@@ -7,7 +7,7 @@ extends Node
 ## Prints one JSON line prefixed MOVETEST so a critic can check our movement
 ## envelope against the claims in reference/krunker-movement.md.
 
-enum Phase { WALK, HOP, STRAFE, TURN, WALL, DONE }
+enum Phase { WALK, HOP, STRAFE, TURN, WALL, STAIRS, DONE }
 
 var player: Player
 var phase: int = Phase.WALK
@@ -30,6 +30,9 @@ var wall_jumps: int = 0
 var wall_peak_y: float = 0.0
 var wall_peak_speed: float = 0.0
 var wall_start_y: float = 0.0
+var stair_start_y: float = 0.0
+var stair_climbed: float = 0.0
+var stair_jumps: int = 0
 var ground_y: float = 0.0
 
 func _ready() -> void:
@@ -74,6 +77,15 @@ func _build_platform() -> void:
 	wall.shape = wb
 	wall.position = Vector3(-8, PLATFORM_Y + 20, 0)
 	slab.add_child(wall)
+	# Four 1-unit risers. A single map block is 1.0, and that must be walkable
+	# without jumping or every staircase in the arena is a wall.
+	for i in 4:
+		var st := CollisionShape3D.new()
+		var sb := BoxShape3D.new()
+		sb.size = Vector3(8, 1.0 * float(i + 1), 2)
+		st.shape = sb
+		st.position = Vector3(20, PLATFORM_Y + 1.0 + sb.size.y * 0.5 - 1.0, -6.0 - float(i) * 2.0)
+		slab.add_child(st)
 	add_child(slab)
 
 func _physics_process(delta: float) -> void:
@@ -148,6 +160,18 @@ func _physics_process(delta: float) -> void:
 			wall_peak_y = maxf(wall_peak_y, player.global_position.y - wall_start_y)
 			wall_peak_speed = maxf(wall_peak_speed, m.speed_flat)
 			if t >= 3.0:
+				_reset(Phase.STAIRS)
+				player.global_position = Vector3(20, PLATFORM_Y + 1.2, 2.0)
+				player.velocity = Vector3.ZERO
+				stair_start_y = player.global_position.y
+
+		Phase.STAIRS:
+			# Walk into the risers with jump explicitly held OFF.
+			m.step(Vector3(0, 0, -1), false, false, delta)
+			if m.jumped_this_tick:
+				stair_jumps += 1
+			stair_climbed = maxf(stair_climbed, player.global_position.y - stair_start_y)
+			if t >= 4.0:
 				_finish()
 
 func _reset(next: int) -> void:
@@ -159,6 +183,11 @@ func _reset(next: int) -> void:
 	player.velocity = Vector3.ZERO
 	player.motor.sliding = false
 	player.motor.slide_cd = 0.0
+	# Carry-over would fire a phantom jump on the first tick of the next phase:
+	# the stairs phase held jump OFF and still recorded one, banked from the
+	# wall phase before it.
+	player.motor.jump_buffered = 0.0
+	player.motor.coyote = 0.0
 	start_pos = player.global_position
 
 func _finish() -> void:
@@ -189,6 +218,10 @@ func _finish() -> void:
 		"wall_peak_height_gain_m": wall_peak_y,
 		"wall_peak_speed_mps": wall_peak_speed,
 		"slide_rejump_window_s": Tuning.slide_rejump_window,
+		"step_height_setting": Tuning.step_height,
+		"stairs_climbed_m_no_jump": stair_climbed,
+		"stairs_jumps_used": stair_jumps,
+		"stairs_available_m": 3.0,   # four risers, top sits 3 m above the slab
 	}
 	print("MOVETEST ", JSON.stringify(results))
 	get_tree().quit(0)

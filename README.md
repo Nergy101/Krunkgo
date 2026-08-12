@@ -43,7 +43,8 @@ with instructions rather than pretending to succeed.
 
 ```
 WASD                    move — holding two keys gives the 1.2x diagonal strafe bonus
-Space                   jump; hold it, auto-bhop is on
+Space                   jump; hold it, auto-bhop is on. Single-block steps and
+                        stairs are walked over, no jump needed
 Shift                   slide
 Shift + Space           slide-hop. Chains to 16.5 m/s from a base of 7.5
 Space into a wall       wall-jump, two charges, restored on landing
