@@ -20,7 +20,10 @@ func build() -> void:
 			by_color[key] = []
 		by_color[key].append(b)
 
-	_validate(boxes)
+	# Nudge coplanar faces apart BEFORE anything is built from the list, so the
+	# meshes and the collision shapes stay in agreement.
+	var nudged: int = _deconflict(boxes)
+	_validate(boxes, nudged)
 
 	for key in by_color.keys():
 		var mi := MeshInstance3D.new()
@@ -139,7 +142,69 @@ func random_spawn(away_from: Array = []) -> Vector3:
 ## backface culling makes it invisible from the outside — you look straight
 ## through what should be a solid wall. Cheap to check, impossible to spot by
 ## reading the layout code.
-func _validate(boxes: Array) -> void:
+## Push coincident faces apart by a hair.
+##
+## Two faces at exactly the same depth pointing the same way make the depth
+## buffer choose per pixel per frame, which is the flicker you see in motion.
+## Hand-fixing each collision does not scale and regresses the moment the
+## layout changes, so this runs over the finished box list and offsets the
+## smaller box of every coplanar pair outward by EPS. Six millimetres is far
+## below anything visible at this scale but is many times the depth precision,
+## so the winner becomes deterministic.
+const EPS := 0.006
+
+func _deconflict(boxes: Array) -> int:
+	var moved := 0
+	# Two passes: moving a box can bring it flush with a third one.
+	for _pass in 4:
+		for i in boxes.size():
+			for j in range(i + 1, boxes.size()):
+				var a: Dictionary = boxes[i]
+				var b: Dictionary = boxes[j]
+				if _coplanar_area(a, b) <= 0.01:
+					continue
+				var av: float = a["s"].x * a["s"].y * a["s"].z
+				var bv: float = b["s"].x * b["s"].y * b["s"].z
+				var small: Dictionary = a if av <= bv else b
+				var big: Dictionary = b if av <= bv else a
+				# A pair can share planes on more than one axis — a crenellation
+				# meeting another crenellation at a corner shares two. Nudging
+				# only the first one leaves the others still level.
+				var np: Vector3 = small["p"]
+				var did := false
+				for axis in 3:
+					if not _shares_plane(small, big, axis):
+						continue
+					var dir: float = 1.0
+					if absf(small["p"][axis] - big["p"][axis]) < 0.001:
+						dir = -1.0
+					np[axis] += dir * EPS
+					did = true
+				if did:
+					small["p"] = np
+					moved += 1
+	return moved
+
+## Does this axis carry a shared face plane, with real overlap on the other two?
+func _shares_plane(a: Dictionary, b: Dictionary, axis: int) -> bool:
+	var ap: Vector3 = a["p"]
+	var as_: Vector3 = a["s"]
+	var bp: Vector3 = b["p"]
+	var bs: Vector3 = b["s"]
+	var same_min: bool = absf(ap[axis] - bp[axis]) < 0.001
+	var same_max: bool = absf((ap[axis] + as_[axis]) - (bp[axis] + bs[axis])) < 0.001
+	if not (same_min or same_max):
+		return false
+	for other in 3:
+		if other == axis:
+			continue
+		var lo: float = maxf(ap[other], bp[other])
+		var hi: float = minf(ap[other] + as_[other], bp[other] + bs[other])
+		if hi - lo <= 0.001:
+			return false
+	return true
+
+func _validate(boxes: Array, nudged: int = 0) -> void:
 	var bad := 0
 	for b in boxes:
 		var s: Vector3 = b["s"]
@@ -164,7 +229,7 @@ func _validate(boxes: Array) -> void:
 		print("ZFIGHT %.2f m2  %s %s%s  vs  %s %s%s" % [o["v"], o["ca"], o["pa"], o["sa"],
 			o["cb"], o["pb"], o["sb"]])
 	print("MAPCHECK ", JSON.stringify({"boxes": boxes.size(), "degenerate": bad,
-		"coplanar_face_pairs": overlaps.size()}))
+		"coplanar_face_pairs": overlaps.size(), "nudged": nudged}))
 
 ## Area of any face plane the two boxes SHARE. Coincident faces at the same
 ## depth are what the depth buffer flickers between; a prop merely buried
