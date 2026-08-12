@@ -16,12 +16,14 @@ extends RefCounted
 
 const TEX_SIZE := 32
 
-enum Surf { BRICK, BLOCK, TILE, PLANK, PANEL, GRAIN, ROUGH, FLAT, LEAF, PANE }
+enum Surf { BRICK, BLOCK, TILE, PLANK, PANEL, GRAIN, ROUGH, FLAT, LEAF, PANE, FLAG }
 
 ## key -> [base colour, surface kind, pattern contrast]
 const SPEC := {
-	"road":     [Color8(170, 158, 138), Surf.ROUGH, 0.16],
-	"kerb":     [Color8(203, 197, 183), Surf.BLOCK, 0.22],
+	# Burg's floor carries as much colour identity as its walls: warm tan
+	# flagstones with visible joints, not the cool near-uniform noise this had.
+	"road":     [Color8(188, 166, 128), Surf.FLAG, 0.26],
+	"kerb":     [Color8(208, 191, 158), Surf.BLOCK, 0.24],
 	"wall_a":   [Color8(198, 189, 170), Surf.BRICK, 0.24],
 	"wall_b":   [Color8(182, 171, 152), Surf.BRICK, 0.26],
 	"wall_c":   [Color8(160, 150, 133), Surf.BLOCK, 0.28],
@@ -32,13 +34,13 @@ const SPEC := {
 	"metal":    [Color8(138, 131, 120), Surf.PANEL, 0.17],
 	"accent":   [Color8(179, 58, 43), Surf.FLAT, 0.06],
 	"grass":    [Color8(95, 122, 58), Surf.LEAF, 0.20],
-	"dirt":     [Color8(132, 119, 101), Surf.ROUGH, 0.18],
+	"dirt":     [Color8(146, 124, 96), Surf.ROUGH, 0.20],
 	"glass":    [Color8(53, 64, 74), Surf.PANE, 0.30],
 	"dark":     [Color8(58, 44, 32), Surf.PLANK, 0.16],
 	"light":    [Color8(230, 220, 196), Surf.BLOCK, 0.10],
 }
 
-const SKY_TOP := Color8(126, 176, 214)
+const SKY_TOP := Color8(152, 187, 210)   # paler and warmer: Burg's sky is hazy, not vivid
 const SKY_HORIZON := Color8(240, 231, 206)
 const SUN_COLOR := Color8(255, 244, 214)
 const FOG_COLOR := Color8(226, 214, 186)
@@ -136,6 +138,17 @@ static func _value(x: int, y: int, kind: int, rng: RandomNumberGenerator) -> flo
 			# window: dark glass with a bright reflected streak
 			var streak: bool = absi((x - y) % 32) < 3
 			return 1.6 if streak else -0.4 + 0.2 * n
+		Surf.FLAG:
+			# irregular flagstones: a coarse grid whose rows shift, so it never
+			# reads as graph paper the way a plain lattice does
+			var row: int = y / 11
+			var shift: int = (row * 5) % 11
+			var jx: bool = ((x + shift) % 11) == 0
+			var jy: bool = (y % 11) == 0
+			if jx or jy:
+				return -1.7
+			var cell: float = float(((x + shift) / 11 + row * 3) % 5) / 5.0
+			return (cell - 0.5) * 0.9 + 0.55 * n
 		Surf.ROUGH:
 			return 0.8 * n
 		_:

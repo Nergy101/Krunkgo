@@ -45,34 +45,50 @@ static func boxes() -> Array:
 ## constant-height flat-topped box running 64 units on all four sides was the
 ## flattest silhouette in the map.
 static func _perimeter_detail(b: Array) -> void:
+	# Merlon width and height step through a short cycle. One identical unit
+	# repeated every 3 m read as a machine-made comb rather than masonry.
+	const MERLON_W := [1.6, 2.1, 1.3, 1.8]
+	const MERLON_H := [1.4, 1.0, 1.7, 1.2]
+	var i := 0
 	var x := -32.0
 	while x < 32.0:
-		_box(b, Vector3(x, H, -32), Vector3(1.6, 1.4, 1), "wall_c")
-		_box(b, Vector3(x, H, 31), Vector3(1.6, 1.4, 1), "wall_c")
+		var w: float = MERLON_W[i % 4]
+		var mh: float = MERLON_H[i % 4]
+		_box(b, Vector3(x, H, -32), Vector3(w, mh, 1), "wall_c")
+		_box(b, Vector3(x, H, 31), Vector3(MERLON_W[(i + 2) % 4], MERLON_H[(i + 1) % 4], 1), "wall_c")
 		x += 3.0
+		i += 1
+	i = 0
 	var z := -32.0
 	while z < 32.0:
-		_box(b, Vector3(-32, H, z), Vector3(1, 1.4, 1.6), "wall_c")
-		_box(b, Vector3(31, H, z), Vector3(1, 1.4, 1.6), "wall_c")
+		_box(b, Vector3(-32, H, z), Vector3(1, MERLON_H[i % 4], MERLON_W[i % 4]), "wall_c")
+		_box(b, Vector3(31, H, z), Vector3(1, MERLON_H[(i + 3) % 4], MERLON_W[(i + 1) % 4]), "wall_c")
 		z += 3.0
+		i += 1
 	# towers at three different heights so the skyline is not one flat line
 	# Inset by the wall thickness so a tower ABUTS the ring instead of being
 	# buried in it. Overlapping put 36 m3 of coplanar faces at identical depth
 	# on six towers, and the depth buffer flickered between them whenever the
 	# camera moved. Touching faces are fine: they point opposite ways, so only
 	# one is ever front-facing.
+	# Footprint AND depth vary, not just height. Six identical 4x4 stubs at one
+	# depth gave the wall a flat, repeated silhouette from every angle; Burg's
+	# towers overlap and step in and out.
 	const TOWERS := [
-		[Vector3(-31, 0, -31), 4.0], [Vector3(27, 0, -31), 2.0],
-		[Vector3(-31, 0, 27), 2.5], [Vector3(27, 0, 27), 4.5],
-		[Vector3(-2, 0, -31), 3.0], [Vector3(-31, 0, -2), 1.5],
+		[Vector3(-31, 0, -31), 4.0, 5.0], [Vector3(26, 0, -31), 2.0, 5.0],
+		[Vector3(-31, 0, 26), 2.5, 5.0], [Vector3(27, 0, 27), 4.5, 4.0],
+		[Vector3(-4, 0, -31), 3.0, 6.0], [Vector3(-31, 0, -4), 1.5, 3.0],
+		[Vector3(12, 0, -31), 0.8, 3.0], [Vector3(-31, 0, 12), 2.2, 4.0],
 	]
 	for t in TOWERS:
-		var p: Vector3 = t[0]
+		var tp: Vector3 = t[0]
 		var extra: float = t[1]
-		_box(b, p, Vector3(4, H + extra, 4), "wall_b")
-		for i in 2:
-			for j in 2:
-				_box(b, p + Vector3(i * 3.0, H + extra, j * 3.0),
+		var fp: float = t[2]
+		_box(b, tp, Vector3(fp, H + extra, fp), "wall_b")
+		var step: float = fp - 1.0
+		for ci in 2:
+			for cj in 2:
+				_box(b, tp + Vector3(ci * step, H + extra, cj * step),
 					Vector3(1, 1.6, 1), "wall_c")
 
 # ------------------------------------------------------------------- regions
@@ -119,8 +135,15 @@ static func _west_terrace(b: Array) -> void:
 	# three narrow houses with 3-wide alleys between them
 	# Third house pulled back to z=2: at z=4 it ran into the B-site warehouse
 	# footprint and their roofs shared a plane.
-	for z in [-14.0, -6.0, 2.0]:
-		_building(b, Vector3(-27, 0, z), Vector3(8, 6, 6), "wall_a", "roof", 2, "x+")
+	# Three copies of one house is a row of clones. Vary depth, height, roof and
+	# which side the door faces so each reads as its own dwelling.
+	const HOUSES := [
+		[-14.0, Vector3(8, 6, 6), "wall_a", "roof", "x+"],
+		[-6.0, Vector3(9, 7, 6), "wall_b", "roof_alt", "z+"],
+		[2.0, Vector3(7, 5, 6), "wall_a", "roof", "x+"],
+	]
+	for h in HOUSES:
+		_building(b, Vector3(-27, 0, float(h[0])), h[1], String(h[2]), String(h[3]), 2, String(h[4]))
 
 static func _tunnel(b: Array) -> void:
 	# covered flank: walls, roof, open at both ends
@@ -179,6 +202,11 @@ static func _clutter(b: Array) -> void:
 	_container(b, Vector3(-12, 0, -22), true, "metal")
 	_container(b, Vector3(4, 0, -23), true, "accent")
 	_container(b, Vector3(18, 0, -21), true, "metal")
+	_container(b, Vector3(-24, 0, -22), true, "accent")
+	for p in [Vector3(-6, 0, -22), Vector3(14, 0, -23), Vector3(2, 0, -21)]:
+		_barrel(b, p)
+	_pallet(b, Vector3(-15, 0, -21), true)
+	_pallet(b, Vector3(21, 0, -23), false)
 	for x in [-18.0, -2.0, 12.0, 24.0]:
 		_box(b, Vector3(x, 0, -20), Vector3(2, 1.5, 2), "crate")     # chest
 		_pallet(b, Vector3(x + 3, 0, -23), false)
@@ -240,7 +268,7 @@ static func review_cameras() -> Array:
 		{"name": "overview", "pos": Vector3(40, 34, 40), "look": Vector3(0, 3, 0)},
 		{"name": "long", "pos": Vector3(-18.5, 2.2, -21.5), "look": Vector3(28, 3.0, -21.0)},
 		{"name": "mid", "pos": Vector3(-15, 2.2, 6), "look": Vector3(2, 5, -4)},
-		{"name": "interior", "pos": Vector3(-18, 1.7, 15), "look": Vector3(-8, 2.2, 15)},
+		{"name": "interior", "pos": Vector3(-12.5, 1.7, 11), "look": Vector3(-25, 1.9, 18)},
 		{"name": "roof", "pos": Vector3(19, 14.0, -2), "look": Vector3(-2, 4, 0)},
 		# Close on the west terrace. This is where three walls had a zero-width
 		# pier and rendered as holes you could see straight through, so it earns

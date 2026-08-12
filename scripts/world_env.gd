@@ -71,7 +71,7 @@ static func build(parent: Node3D) -> void:
 	sun.name = "Sun"
 	sun.light_color = Palette.SUN_COLOR
 	sun.light_energy = 2.6
-	sun.light_angular_distance = 0.5      # near-hard shadow edges
+	sun.light_angular_distance = 0.15     # hard shadow edges, as in the bar
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	# The arena is 64 m across, so 120 m of shadow range was paying for empty
