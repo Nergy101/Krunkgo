@@ -84,10 +84,12 @@ templates: ## report whether export templates are installed
 
 ## ---------------------------------------------------------------- project
 
-import: ## build the class cache (required once after checkout)
-	@test -d .godot || $(GODOT) --headless --path . --import >/dev/null 2>&1 || true
+import: ## build the class cache (runs itself on a fresh checkout)
+	@test -d .godot/global_script_class_cache.cfg || { \
+		printf 'first run: building Godot class cache...\n'; \
+		$(GODOT) --headless --path . --import >/dev/null 2>&1 || true; }
 
-check: ## fail on any GDScript parse error
+check: import ## fail on any GDScript parse error
 	@err=$$($(GODOT) --headless --path . --quit 2>&1 \
 		| grep -E "SCRIPT ERROR|Parse Error|Failed to load script" || true); \
 	if [ -n "$$err" ]; then printf '%s\n' "$$err"; printf '\nPARSE FAILED\n'; exit 1; fi
