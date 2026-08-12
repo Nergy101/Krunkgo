@@ -35,6 +35,7 @@ func _ready() -> void:
 	arena = MapBuilder.new()
 	add_child(arena)
 	arena.build()
+	await arena.validate_reachability()
 	arena.process_mode = Node.PROCESS_MODE_PAUSABLE
 	Game.arena = arena
 

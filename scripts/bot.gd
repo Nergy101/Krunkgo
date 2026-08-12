@@ -9,6 +9,10 @@ var roam_target := Vector3.ZERO
 var repath_timer: float = 0.0
 var stuck_time: float = 0.0
 var hop_route: bool = false   # decided per route, not per tick
+var hop_left: int = 0         # hops remaining in the current burst
+var hop_rest: float = 0.0     # forced ground time between bursts
+var last_health: float = -1.0
+var hurt_timer: float = 0.0   # seconds since we were last shot
 var preferred_range: float = 9.0
 var loadout_index: int = -1        # set by main so the lobby has a real mix
 
@@ -59,6 +63,14 @@ func _physics_process(delta: float) -> void:
 func _steer(delta: float) -> void:
 	repath_timer -= delta
 	stuck_time = stuck_time + delta if motor.grounded and motor.speed_flat < 1.0 else 0.0
+	# Players break contact when they are RELOADING or have just been shot,
+	# not only when they are nearly dead. Gating cover on health alone meant
+	# one bot in seven ever used it, because nobody takes enough damage in a
+	# short match to cross bot_retreat_health.
+	hurt_timer = maxf(0.0, hurt_timer - delta)
+	if last_health >= 0.0 and health < last_health - 0.01:
+		hurt_timer = 1.6
+	last_health = health
 	var wish := Vector3.ZERO
 	var want_jump := false
 	var want_crouch := false
@@ -84,19 +96,40 @@ func _steer(delta: float) -> void:
 					var to_cover: Vector3 = brain.cover_point - global_position
 					to_cover.y = 0.0
 					if to_cover.length() > 1.2:
-						wish = to_cover.normalized() * 1.3
-						motor.step(wish, false, false, delta)
-						return
-					if brain.cover_hold <= 0.0 \
-							and (hurt > Tuning.bot_retreat_health or weapon.mag > 0) \
-							and Game.rng.randf() < Tuning.bot_leave_cover_chance:
+						# Give up if the spot turns out to be unreachable. One
+						# bot spent 70% of a match walking at a cover point it
+						# could never stand on, because this branch returned
+						# before anything could re-evaluate the decision.
+						brain.cover_travel += delta
+						if brain.cover_travel > 1.6:
+							brain.in_cover = false
+							brain.cover_travel = 0.0
+							brain.cover_cd = Game.rng.randf_range(5.0, 9.0)
+						else:
+							wish = to_cover.normalized() * 1.3
+							motor.step(wish, false, false, delta)
+							return
+					else:
+						brain.cover_travel = 0.0
+					# Leave the moment the reason to hide is gone. Waiting on
+					# an RNG roll every tick kept bots parked behind a crate
+					# for 60-89% of a match, which is passive, not tactical.
+					var done: bool = weapon.reload_left <= 0.0 and weapon.mag > 0 \
+						and hurt > Tuning.bot_retreat_health and hurt_timer <= 0.0
+					if brain.cover_hold <= 0.0 and (done \
+							or Game.rng.randf() < Tuning.bot_leave_cover_chance):
 						brain.in_cover = false
-				if hurt < Tuning.bot_retreat_health and not brain.in_cover:
+						brain.cover_cd = Game.rng.randf_range(5.0, 9.0)
+				var reloading: bool = weapon.reload_left > 0.0
+				var want_cover: bool = hurt < Tuning.bot_retreat_health \
+					or (reloading and dist < 26.0) \
+					or (hurt_timer > 0.0 and hurt < 0.75)
+				if want_cover and not brain.in_cover and brain.cover_cd <= 0.0:
 					var spot := _find_cover(t)
 					if spot != Vector3.INF:
 						brain.in_cover = true
 						brain.cover_point = spot
-						brain.cover_hold = Game.rng.randf_range(0.8, 2.0)
+						brain.cover_hold = Game.rng.randf_range(0.5, 1.2)
 				if hurt < Tuning.bot_retreat_health:
 					# Break contact when losing. Without this a bot at 15 HP
 					# walks into a shotgun exactly like a bot at 100, which is
@@ -139,12 +172,22 @@ func _steer(delta: float) -> void:
 			if agent.is_navigation_finished():
 				repath_timer = 0.0
 			# Cross open ground the way a player does: chain slide-hops — but
-			# only on some routes. Every bot hopping every transit looked
-			# ridiculous and made them hard to read.
-			if hop_route and wish.length_squared() > 0.5 \
-					and motor.speed_flat > Tuning.slide_min_speed:
-				want_jump = true
-				want_crouch = true
+			# in BURSTS, on some routes only. Holding want_jump every tick
+			# meant auto-bhop re-launched on every landing and the bot never
+			# came down: one bot measured 71% of its match airborne.
+			hop_rest = maxf(0.0, hop_rest - delta)
+			var moving: bool = wish.length_squared() > 0.5 \
+				and motor.speed_flat > Tuning.slide_min_speed
+			if hop_route and moving:
+				if hop_left > 0:
+					if motor.grounded:
+						want_jump = true
+						want_crouch = true
+						hop_left -= 1
+						if hop_left <= 0:
+							hop_rest = Game.rng.randf_range(0.9, 2.0)
+				elif hop_rest <= 0.0:
+					hop_left = Game.rng.randi_range(2, 5)
 
 	# Genuinely stuck: wedged on a corner or pathing into a wall. The previous
 	# version rolled a 25% jump chance EVERY TICK, so any blocked bot hopped

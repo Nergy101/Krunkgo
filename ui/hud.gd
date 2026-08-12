@@ -289,29 +289,48 @@ func _draw_health(size: Vector2) -> void:
 	_text(pos + Vector2(0, -12), "%d" % int(ceil(hp)), 34, WHITE)
 	_text(pos + Vector2(_text_w("%d" % int(ceil(hp)), 34) + 10, -14), "| %d" % int(hp_max), 18, DIM)
 
-## Bottom-right. Heavy "mag | reserve" digits with a row of round pips, which
-## is what makes low ammo obvious without reading a number.
+## Bottom-right. Krunker draws "mag | reserve" in heavy digits with the round
+## pips INLINE to their right — measured off krunker_citadel_viewmodel_01.jpg,
+## where the whole chip is 85x38 in a 1025x576 frame, flush to the right edge
+## and 13 px clear of the bottom. Ours stacked the pips underneath the digits
+## and ran them off the bottom of the screen entirely.
 func _draw_ammo(size: Vector2) -> void:
 	var pad := 26.0
-	var base := Vector2(size.x - pad, size.y - pad - 4)
-	# Krunker keeps the ammo cluster on a dark chip so it reads at constant
-	# contrast on any map; ours floated on backgrounds from 125 to 187 luminance.
-	root.draw_rect(Rect2(Vector2(size.x - pad - 152, base.y - 52),
-		Vector2(162, 74)), PANEL)
+	var pips: int = mini(mag_size, 12)
+	var pitch: float = 10.0
+	var pip_h: float = 26.0
+	var digit_px: int = 40
+
+	# Lay the row out from the right edge inward, then wrap the chip around it,
+	# so nothing can spill past a hard-coded panel again.
+	var right: float = size.x - pad
+	var bottom: float = size.y - pad
+	var pip_left: float = right - float(pips) * pitch
+	var text_right: float = pip_left - 14.0
+	var mag_s := str(mag)
+	var reserve_s := "| %d" % reserve
+	var text_w: float = _text_w(mag_s, digit_px) + _text_w(reserve_s, 24) + 12.0
+	# chip_l is derived from text_w, so both strings must be measured before it
+	var chip_l: float = text_right - text_w - 12.0
+	var chip_t: float = bottom - float(digit_px) - 20.0
+	root.draw_rect(Rect2(Vector2(chip_l, chip_t),
+		Vector2(right + 10.0 - chip_l, bottom - chip_t)), PANEL)
+
+	var mid: float = chip_t + (bottom - chip_t) * 0.5
 	var low: bool = mag <= maxi(1, mag_size / 4)
 	var mag_col: Color = KILL_RED if mag == 0 else (ACCENT if low else WHITE)
-	var mag_s := str(mag)
-	_text(base, mag_s, 52, mag_col, HORIZONTAL_ALIGNMENT_RIGHT, 3.0)
-	_text(base - Vector2(_text_w(mag_s, 52) + 12, 0), "| %d" % reserve, 24, DIM,
+	var text_y: float = mid + float(digit_px) * 0.36
+	# Reference order is mag then reserve, left to right ("3|3"); ours had the
+	# reserve on the left, which reads as the wrong number being the big one.
+	_text(Vector2(text_right, text_y - 4.0), reserve_s, 24, DIM,
 		HORIZONTAL_ALIGNMENT_RIGHT)
+	_text(Vector2(text_right - _text_w(reserve_s, 24) - 12.0, text_y), mag_s,
+		digit_px, mag_col, HORIZONTAL_ALIGNMENT_RIGHT, 3.0)
 
-	# Krunker's rounds are ~9x31 bars at 13 px pitch and read as loudly as the
-	# digits. 7x7 dots vanished into a faint dotted line against bright ground.
-	var pips: int = mini(mag_size, 12)
 	var shown: int = int(round(float(mag) / float(mag_size) * pips))
 	for i in pips:
-		var x: float = size.x - pad - float(pips - i) * 13.0
-		var r := Rect2(Vector2(x, base.y + 8), Vector2(9, 31))
+		var r := Rect2(Vector2(pip_left + float(i) * pitch, mid - pip_h * 0.5),
+			Vector2(pitch - 3.0, pip_h))
 		root.draw_rect(Rect2(r.position + Vector2(2, 2), r.size), OUTLINE)
 		root.draw_rect(r, ACCENT if i < shown else Color(1, 1, 1, 0.20))
 

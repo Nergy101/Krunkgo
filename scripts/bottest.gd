@@ -19,9 +19,14 @@ var stats: Dictionary = {}
 ## Accuracy is the thing players actually feel, and nothing measured it.
 var shots_fired: int = 0
 var shots_landed: int = 0
+var wound_mode: bool = false
+var wound_timer: float = 0.0
 
 func _ready() -> void:
 	name = "BotTest"
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("wound="):
+			wound_mode = arg.split("=")[1] == "1"
 	await get_tree().process_frame
 	for a in Game.actors:
 		var bot := a as Bot
@@ -30,8 +35,24 @@ func _ready() -> void:
 		bot.weapon.fired.connect(func(_d, _m, _dir): shots_fired += 1)
 		bot.weapon.landed.connect(func(_z, _dmg, _p, _n, _v, _k): shots_landed += 1)
 
+## Free play almost never drives a bot below bot_retreat_health, so the cover
+## and retreat branches went unexercised and the probe reported 0.0 for six of
+## seven bots. `bottest wound=1` injects damage on a fixed schedule instead, so
+## the mechanic is measured rather than left to RNG.
+func _wound(delta: float) -> void:
+	wound_timer -= delta
+	if wound_timer > 0.0:
+		return
+	wound_timer = 1.5
+	for a in Game.actors:
+		var bot := a as Bot
+		if bot != null and bot.alive and bot.health > Tuning.max_health * 0.25:
+			bot.health -= Tuning.max_health * 0.30
+
 func _physics_process(delta: float) -> void:
 	elapsed += delta
+	if wound_mode:
+		_wound(delta)
 	samples += 1
 	for a in Game.actors:
 		var bot := a as Bot

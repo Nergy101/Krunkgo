@@ -40,7 +40,9 @@ const SPEC := {
 	"light":    [Color8(230, 220, 196), Surf.BLOCK, 0.10],
 }
 
-const SKY_TOP := Color8(152, 187, 210)   # paler and warmer: Burg's sky is hazy, not vivid
+## Burg's sky reads as a near-achromatic pale cream-khaki, not a blue gradient.
+## At 152,187,210 the zenith was still visibly cyan against the bar.
+const SKY_TOP := Color8(178, 190, 152)
 const SKY_HORIZON := Color8(240, 231, 206)
 const SUN_COLOR := Color8(255, 244, 214)
 const FOG_COLOR := Color8(226, 214, 186)

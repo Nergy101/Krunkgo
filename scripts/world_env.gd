@@ -20,7 +20,7 @@ static func build(parent: Node3D) -> void:
 	var mat := ProceduralSkyMaterial.new()
 	mat.sky_top_color = Palette.SKY_TOP
 	mat.sky_horizon_color = Palette.SKY_HORIZON
-	mat.sky_curve = 0.18
+	mat.sky_curve = 0.34   # thinner blue band, horizon haze carries further up
 	mat.ground_bottom_color = Palette.FOG_COLOR.darkened(0.15)
 	mat.ground_horizon_color = Palette.SKY_HORIZON
 	mat.ground_curve = 0.05

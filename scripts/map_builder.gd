@@ -79,6 +79,95 @@ func _usable_spawns(points: Array, boxes: Array) -> Array:
 	print("SPAWNCHECK ", JSON.stringify({"total": points.size(), "usable": good.size()}))
 	return good
 
+## A spawn can be clear of geometry and still be a prison. One bot spawned in a
+## sealed pocket about 9 m across and paced it for an entire match, never once
+## seeing an enemy — the box test above passed it happily. Only the navmesh
+## knows what is actually connected, and it does not exist until after the
+## bake, so this is a second pass rather than part of _usable_spawns().
+func validate_reachability() -> void:
+	# The navigation map is not queryable the instant the region bakes; before
+	# it syncs every path comes back empty, which reads exactly like "the whole
+	# map is unreachable". Wait for a real answer instead of a fixed count.
+	var map: RID = get_world_3d().navigation_map
+	# The navigation map is not queryable the instant the region bakes, and
+	# every proxy for "is it ready yet" lied: an unsynced map reports regions,
+	# a non-zero iteration id, and answers closest-point queries with the zero
+	# vector, which is indistinguishable from a real answer at the origin.
+	# Waiting on the measurement itself is the only honest test.
+	var reach: Array[int] = []
+	var waited := 0
+	for _i in 40:
+		await get_tree().physics_frame
+		waited += 1
+		reach = _reach_counts(spawn_points, map)
+		if reach.max() > 0:
+			break
+
+	var need: int = maxi(1, (spawn_points.size() - 1) / 2)
+	var good: Array = []
+	var bad: int = 0
+	for i in spawn_points.size():
+		if reach[i] >= need:
+			good.append(spawn_points[i])
+		else:
+			bad += 1
+			push_warning("MapBuilder: spawn %s reaches only %d others, relocating"
+				% [spawn_points[i], reach[i]])
+	if good.is_empty():
+		push_error("MapBuilder: no spawn reaches any other")
+		return
+
+	# Repair rather than just drop. Hand-placed spawns have now been wrong
+	# twice — once buried in a tower, once sealed in a pocket — so replacements
+	# are chosen from the navmesh itself: on the main component, reachable, and
+	# as far from the spawns we already have as possible.
+	for _r in bad:
+		var best := Vector3.INF
+		var best_score: float = -1.0
+		for gx in 30:
+			for gz in 30:
+				var c := Vector3(-29.0 + float(gx) * 2.0, 0.0, -29.0 + float(gz) * 2.0)
+				var snapped: Vector3 = NavigationServer3D.map_get_closest_point(map, c)
+				if snapped.distance_to(c) > 0.6:
+					continue                       # not standable ground
+				var path: PackedVector3Array = NavigationServer3D.map_get_path(
+					map, snapped, good[0], true)
+				if path.is_empty() or path[path.size() - 1].distance_to(good[0]) > 2.5:
+					continue                       # in a pocket like the last one
+				var score: float = 1e9
+				for g in good:
+					score = minf(score, snapped.distance_to(g))
+				if score > best_score:
+					best_score = score
+					best = snapped
+		if best == Vector3.INF:
+			break
+		good.append(best)
+	spawn_points = good
+	print("REACHCHECK ", JSON.stringify({
+		"kept": spawn_points.size(), "relocated": bad, "frames_waited": waited,
+		"min_separation_m": snappedf(_min_separation(spawn_points), 0.1)}))
+
+func _reach_counts(points: Array, map: RID) -> Array[int]:
+	var out: Array[int] = []
+	for a in points:
+		var n := 0
+		for b in points:
+			if a.distance_to(b) < 0.1:
+				continue
+			var path: PackedVector3Array = NavigationServer3D.map_get_path(map, a, b, true)
+			if path.size() > 0 and path[path.size() - 1].distance_to(b) < 2.5:
+				n += 1
+		out.append(n)
+	return out
+
+func _min_separation(points: Array) -> float:
+	var m: float = 1e9
+	for i in points.size():
+		for j in range(i + 1, points.size()):
+			m = minf(m, points[i].distance_to(points[j]))
+	return m if m < 1e8 else 0.0
+
 func _bake_nav() -> void:
 	var nm := NavigationMesh.new()
 	nm.agent_radius = 0.45

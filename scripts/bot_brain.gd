@@ -20,6 +20,8 @@ var retreating: bool = false
 var in_cover: bool = false
 var cover_point := Vector3.ZERO
 var cover_hold: float = 0.0
+var cover_cd: float = 0.0     # stops cover becoming a permanent hiding place
+var cover_travel: float = 0.0 # how long we have been walking to cover_point
 var jump_timer: float = 0.0
 var burst_left: int = 0
 var burst_pause: float = 0.0
@@ -29,6 +31,7 @@ func think(delta: float, candidates: Array) -> void:
 	strafe_timer -= delta
 	jump_timer -= delta
 	cover_hold = maxf(0.0, cover_hold - delta)
+	cover_cd = maxf(0.0, cover_cd - delta)
 	burst_pause = maxf(0.0, burst_pause - delta)
 
 	var seen := _pick_target(candidates)
