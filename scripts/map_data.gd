@@ -56,10 +56,15 @@ static func _perimeter_detail(b: Array) -> void:
 		_box(b, Vector3(31, H, z), Vector3(1, 1.4, 1.6), "wall_c")
 		z += 3.0
 	# towers at three different heights so the skyline is not one flat line
+	# Inset by the wall thickness so a tower ABUTS the ring instead of being
+	# buried in it. Overlapping put 36 m3 of coplanar faces at identical depth
+	# on six towers, and the depth buffer flickered between them whenever the
+	# camera moved. Touching faces are fine: they point opposite ways, so only
+	# one is ever front-facing.
 	const TOWERS := [
-		[Vector3(-32, 0, -32), 4.0], [Vector3(28, 0, -32), 2.0],
-		[Vector3(-32, 0, 28), 2.5], [Vector3(28, 0, 28), 4.5],
-		[Vector3(-2, 0, -32), 3.0], [Vector3(-32, 0, -2), 1.5],
+		[Vector3(-31, 0, -31), 4.0], [Vector3(27, 0, -31), 2.0],
+		[Vector3(-31, 0, 27), 2.5], [Vector3(27, 0, 27), 4.5],
+		[Vector3(-2, 0, -31), 3.0], [Vector3(-31, 0, -2), 1.5],
 	]
 	for t in TOWERS:
 		var p: Vector3 = t[0]
@@ -80,10 +85,8 @@ static func _long_lane(b: Array) -> void:
 	_box(b, Vector3(-31, 0, -24), Vector3(7, 3, 6), "wall_a")
 	_box(b, Vector3(-31, 3, -24), Vector3(7, 1, 6), "kerb")
 	_stairs(b, Vector3(-24, 0, -21), Vector3(1, 0, 0), 3, 4.0, "kerb")
-	# sandbag-height cover down the lane, so it is crossable under fire
-	for x in [-14, -4, 8, 18]:
-		_box(b, Vector3(x, 0, -23), Vector3(3, 1, 2), "crate")
-		_box(b, Vector3(x + 4, 0, -20), Vector3(2, 2, 2), "crate")
+	# Cover down the lane is seeded by _clutter now. This used to add its own
+	# set and dropped a crate at exactly the same coordinate as one of them.
 
 static func _mid(b: Array) -> void:
 	# raised plaza
@@ -92,32 +95,31 @@ static func _mid(b: Array) -> void:
 	# a small roofed shrine on top: cover, and a landmark you can call out
 	_building(b, Vector3(-3, 4, -3), Vector3(6, 4, 6), "wall_a", "roof", 2, "z-")
 	# stairs up from the west alley and the east courtyard
-	_stairs(b, Vector3(-10, 0, -3), Vector3(1, 0, 0), 4, 5.0, "kerb")
-	_stairs(b, Vector3(10, 0, -1), Vector3(-1, 0, 0), 4, 5.0, "kerb")
+	_stairs(b, Vector3(-11, 0, -3), Vector3(1, 0, 0), 4, 5.0, "kerb")
+	_stairs(b, Vector3(11, 0, -1), Vector3(-1, 0, 0), 4, 5.0, "kerb")
 	# low lip so you can crouch-peek LONG from the plaza edge
 	_box(b, Vector3(-7, 4, -8), Vector3(14, 1, 1), "kerb")
 
 static func _a_site(b: Array) -> void:
 	# tall guardhouse: three storeys, the only roof that sees the whole map
 	_building(b, Vector3(14, 0, -14), Vector3(11, 9, 10), "wall_a", "roof", 3, "x-")
-	_stairs(b, Vector3(13, 0, -6), Vector3(0, 0, -1), 5, 3.0, "wood")
+	_stairs(b, Vector3(11, 0, -6), Vector3(0, 0, -1), 5, 3.0, "wood")
 	# courtyard wall with a gap, so A is enterable from two sides
 	_wall_run(b, Vector3(12, 0, -2), Vector3(0, 0, 1), 14, 4.0, 1.0, "wall_b", [], 0)
-	_box(b, Vector3(12, 0, 6), Vector3(1, 4, 4), "wall_b")
 	_building(b, Vector3(18, 0, 4), Vector3(9, 6, 9), "wall_b", "roof_alt", 2, "x-")
 
 static func _b_site(b: Array) -> void:
 	# warehouse: wide, low, two entrances, fightable interior
 	_building(b, Vector3(-26, 0, 8), Vector3(16, 7, 14), "wall_b", "roof_alt", 2, "x+")
-	# second entrance punched in the north face
-	_box(b, Vector3(-20, 0, 8), Vector3(4, 1, 1), "wall_b")
-	_box(b, Vector3(-20, 4, 8), Vector3(4, 3, 1), "wall_b")
-	_stairs(b, Vector3(-9, 0, 12), Vector3(-1, 0, 0), 4, 4.0, "wood")
+	# The north face already carries a doorway from _building; two extra boxes
+	# here only duplicated wall that was already there.
+	_stairs(b, Vector3(-9, 0, 12), Vector3(-1, 0, 0), 3, 4.0, "wood")
 
 static func _west_terrace(b: Array) -> void:
 	# three narrow houses with 3-wide alleys between them
-	for i in 3:
-		var z: float = -14.0 + i * 9.0
+	# Third house pulled back to z=2: at z=4 it ran into the B-site warehouse
+	# footprint and their roofs shared a plane.
+	for z in [-14.0, -6.0, 2.0]:
 		_building(b, Vector3(-27, 0, z), Vector3(8, 6, 6), "wall_a", "roof", 2, "x+")
 
 static func _tunnel(b: Array) -> void:
@@ -125,7 +127,7 @@ static func _tunnel(b: Array) -> void:
 	_box(b, Vector3(-3, 0, 12), Vector3(1, 4, 19), "wall_c")
 	_box(b, Vector3(4, 0, 12), Vector3(1, 4, 19), "wall_c")
 	_box(b, Vector3(-3, 4, 12), Vector3(8, 1, 19), "dark")
-	_box(b, Vector3(-3, 4, 12), Vector3(8, 2, 1), "wall_c")
+	_box(b, Vector3(-3, 5, 12), Vector3(8, 2, 1), "wall_c")
 
 ## Prop vocabulary. The first pass had 25 boxes across 3844 square units — one
 ## prop per 154 units — and none of them indoors or on a roof. Every reference
@@ -163,10 +165,10 @@ static func _awning(b: Array, p: Vector3, s: Vector3) -> void:
 
 static func _clutter(b: Array) -> void:
 	# --- B-SITE warehouse interior: containers and pallets worth entering for
-	_container(b, Vector3(-24, 0, 10), true, "metal")
-	_container(b, Vector3(-24, 0, 17), true, "accent")
+	_container(b, Vector3(-21, 0, 10), true, "metal")   # clear of the stairwell
+	_container(b, Vector3(-22, 0, 17), true, "accent")
 	_container(b, Vector3(-16, 0, 13), false, "metal")
-	_container(b, Vector3(-24, 2.5, 10), true, "wood")
+	_container(b, Vector3(-21, 2.75, 10), true, "wood")   # clears the lid below
 	for p in [Vector3(-13, 0, 10), Vector3(-13, 0, 19), Vector3(-19, 0, 20)]:
 		_pallet(b, p, true)
 	for p in [Vector3(-15, 0, 16), Vector3(-21, 0, 9), Vector3(-12, 0, 15)]:
@@ -205,11 +207,13 @@ static func _clutter(b: Array) -> void:
 	for p in [Vector3(-10, 0, 4), Vector3(8, 0, 16), Vector3(-2, 0, -8)]:
 		_barrel(b, p)
 
-	# --- roofs: give every one something to fight behind
-	for p in [Vector3(-25, 6.5, 10), Vector3(-25, 6.5, 18), Vector3(-14, 6.5, 14)]:
+	# Cover on the flat surfaces people actually fight on. Crates on a stepped
+	# pyramid roof always ended up buried inside a step, sharing a face plane
+	# with it and flickering.
+	for p in [Vector3(-31, 7, -3), Vector3(26, 7, -3)]:
 		_box(b, p, Vector3(2, 1.5, 2), "crate")
-	for p in [Vector3(16, 9.5, -12), Vector3(22, 9.5, -8), Vector3(19, 9.5, -6)]:
-		_box(b, p, Vector3(2, 1.5, 2), "crate")
+	for p in [Vector3(-5, 4, -6), Vector3(3, 4, 3)]:
+		_box(b, p, Vector3(1.5, 1.2, 1.5), "wood")
 
 	# --- telegraph runs across the open ground, breaking the empty skyline
 	_wire_run(b, Vector3(-10, 0, -14), Vector3(-10, 0, 6))
@@ -316,8 +320,11 @@ static func _building(b: Array, p: Vector3, s: Vector3, wall: String, roof: Stri
 			continue
 		_box(b, Vector3(p.x + 1 + well, y, p.z + 1), Vector3(iw - well, 0.5, id), "wood")
 		_box(b, Vector3(p.x + 1, y, p.z + 1 + well), Vector3(well, 0.5, id - well), "wood")
+		# floor(), not ceil(): with ceil the top step ended level with the slab
+		# above it, so two upward faces sat at identical depth and flickered.
+		# Landing one step short leaves a lip you can still walk up.
 		_stairs(b, Vector3(p.x + 1, y - storey, p.z + 1), Vector3(0, 0, 1),
-			int(ceil(storey)), well, "wood")
+			maxi(1, int(floor(storey))), well, "wood")
 	_pitched_roof(b, Vector3(p.x, p.y + s.y, p.z), Vector3(s.x, 1, s.z), roof)
 
 static func _face(b: Array, p: Vector3, s: Vector3, side: String, key: String,

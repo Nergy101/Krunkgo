@@ -199,6 +199,8 @@ func _draw_crosshair(c: Vector2) -> void:
 	# Clamped to Krunker's measured open radius (109 px at 576h -> 170 at 900h).
 	# Unclamped this reached 116 on the rifle and ~313 on a moving shotgun, and
 	# the bottom dash then collided with the speed readout.
+	if player == null or not player.alive:
+		return
 	var gap := 22.0
 	var fade := 1.0
 	if player and player.weapon:
@@ -223,7 +225,7 @@ func _draw_crosshair(c: Vector2) -> void:
 ## filled rect, but a ring whose inner edge is the aperture and whose outer edge
 ## runs past the corners gets there in a single call.
 func _draw_scope(size: Vector2, c: Vector2) -> void:
-	if player == null or player.weapon == null:
+	if player == null or player.weapon == null or not player.alive:
 		return
 	if not bool(player.weapon.def.get("scoped", false)):
 		return

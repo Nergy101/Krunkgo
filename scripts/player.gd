@@ -236,7 +236,9 @@ func _update_camera(delta: float) -> void:
 	# so the aperture shows clean world, which is what looking through a scope
 	# looks like.
 	var scoped: bool = bool(weapon.def.get("scoped", false))
-	viewmodel.visible = not (scoped and weapon.ads_amount > 0.55)
+	# Dead players hold no gun. Leaving the viewmodel and crosshair up while the
+	# respawn timer runs reads as though you are still in the fight.
+	viewmodel.visible = alive and not (scoped and weapon.ads_amount > 0.55)
 	viewmodel.sync_size(Vector2i(get_viewport().get_visible_rect().size))
 
 # ------------------------------------------------------------------ feedback

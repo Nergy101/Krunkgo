@@ -146,4 +146,69 @@ func _validate(boxes: Array) -> void:
 		if s.x <= 0.0 or s.y <= 0.0 or s.z <= 0.0:
 			bad += 1
 			push_warning("MapBuilder: degenerate box p=%s s=%s c=%s" % [b["p"], s, b["c"]])
-	print("MAPCHECK ", JSON.stringify({"boxes": boxes.size(), "degenerate": bad}))
+	# Interpenetrating boxes that share a palette key put two coplanar faces at
+	# the same depth, and the depth buffer then flickers between them. That is
+	# the "geometry clipping through itself" you see in motion.
+	var overlaps: Array = []
+	for i in boxes.size():
+		for j in range(i + 1, boxes.size()):
+			var v: float = _coplanar_area(boxes[i], boxes[j])
+			if v > 0.5:
+				overlaps.append({"v": v, "a": i, "b": j,
+					"ca": boxes[i]["c"], "cb": boxes[j]["c"],
+					"pa": boxes[i]["p"], "sa": boxes[i]["s"],
+					"pb": boxes[j]["p"], "sb": boxes[j]["s"]})
+	overlaps.sort_custom(func(x, y): return x["v"] > y["v"])
+	for k in mini(12, overlaps.size()):
+		var o: Dictionary = overlaps[k]
+		print("ZFIGHT %.2f m2  %s %s%s  vs  %s %s%s" % [o["v"], o["ca"], o["pa"], o["sa"],
+			o["cb"], o["pb"], o["sb"]])
+	print("MAPCHECK ", JSON.stringify({"boxes": boxes.size(), "degenerate": bad,
+		"coplanar_face_pairs": overlaps.size()}))
+
+## Area of any face plane the two boxes SHARE. Coincident faces at the same
+## depth are what the depth buffer flickers between; a prop merely buried
+## inside a wall has no shared plane and renders cleanly.
+static func _coplanar_area(a: Dictionary, b: Dictionary) -> float:
+	var ap: Vector3 = a["p"]
+	var as_: Vector3 = a["s"]
+	var bp: Vector3 = b["p"]
+	var bs: Vector3 = b["s"]
+	const EPS := 0.001
+	var worst := 0.0
+	for axis in 3:
+		var a0: float = ap[axis]
+		var a1: float = ap[axis] + as_[axis]
+		var b0: float = bp[axis]
+		var b1: float = bp[axis] + bs[axis]
+		# do they share a plane on this axis, in the same direction?
+		var shares: bool = absf(a0 - b0) < EPS or absf(a1 - b1) < EPS
+		if not shares:
+			continue
+		# and do they actually overlap on the other two axes?
+		var area := 1.0
+		var ok := true
+		for other in 3:
+			if other == axis:
+				continue
+			var lo: float = maxf(ap[other], bp[other])
+			var hi: float = minf(ap[other] + as_[other], bp[other] + bs[other])
+			if hi - lo <= EPS:
+				ok = false
+				break
+			area *= hi - lo
+		if ok:
+			worst = maxf(worst, area)
+	return worst
+
+static func _overlap_volume(a: Dictionary, b: Dictionary) -> float:
+	var ap: Vector3 = a["p"]
+	var as_: Vector3 = a["s"]
+	var bp: Vector3 = b["p"]
+	var bs: Vector3 = b["s"]
+	var x: float = minf(ap.x + as_.x, bp.x + bs.x) - maxf(ap.x, bp.x)
+	var y: float = minf(ap.y + as_.y, bp.y + bs.y) - maxf(ap.y, bp.y)
+	var z: float = minf(ap.z + as_.z, bp.z + bs.z) - maxf(ap.z, bp.z)
+	if x <= 0.001 or y <= 0.001 or z <= 0.001:
+		return 0.0
+	return x * y * z
