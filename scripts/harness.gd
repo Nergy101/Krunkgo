@@ -37,6 +37,13 @@ func _ready() -> void:
 	active = bench_seconds > 0.0 or shot_dir != ""
 	if args.has("seed"):
 		Game.rng.seed = int(args["seed"])
+		# Seed the GLOBAL rng too. 24 call sites across player.gd, fx.gd,
+		# audio.gd and palette.gd use the bare randf() family, which Godot
+		# auto-seeds from the clock, so `seed=7` controlled the AI and nothing
+		# else — even the baked textures differed between runs of the same
+		# seed. Any probe that reports one run as authoritative was reporting
+		# a lottery ticket.
+		seed(int(args["seed"]))
 	else:
 		Game.rng.randomize()
 	if args.has("bots"):

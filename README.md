@@ -174,3 +174,22 @@ that is how the HUD layout was corrected.
 separate harsh critic against the real thing, and the gaps drive the next round.
 It also records the bugs worth remembering, including the one where every
 hand-built face in the map was wound backwards and you could see through walls.
+
+## What the fps numbers mean
+
+`make bench` at 1600x900 reports exactly 120.0 fps on this machine, and it
+reports that whether you run 0 bots or 7, at 640x360 or 1600x900, with the
+physics tick at 60, 120 or 240 Hz. A number invariant to every input is a
+ceiling being imposed from outside, not a measurement of the game — vsync is
+genuinely off (`window_get_vsync_mode` returns 0, `Engine.max_fps` is 0), so
+it is the platform presenting.
+
+So treat 120 at 1600x900 as a floor. To get a real load figure, push past the
+cap with resolution:
+
+  1600x900    120.0 fps    8.3 ms   (capped; true cost is lower)
+  2560x1440    63.4 fps   15.7 ms
+  3840x2160    45.7 fps   22.0 ms
+
+60+ at 1440p with 770 map boxes, ~200 draw calls and eight actors fighting is
+the honest claim.

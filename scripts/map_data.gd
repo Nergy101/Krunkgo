@@ -325,6 +325,27 @@ static func _clutter(b: Array) -> void:
 	_barrel(b, Vector3(6, 0, 12))
 	_box(b, Vector3(2, 0, 10), Vector3(2, 1.6, 2), "crate")
 
+	# --- north-east: the last thin cell. The occupancy grid had it at 12
+	# against the west's 69, and it is the corner where LONG's east end meets
+	# A-site, so it was crossing ground between two fights rather than either.
+	# A guard post with a stair to its roof gives the A-site approach something
+	# to contest and gives LONG an east-end angle that is not just open wall.
+	_building(b, Vector3(21, 0, -31), Vector3(8, 5, 7), "wall_b", "roof", 1, "z+")
+	_stairs(b, Vector3(19, 0, -30), Vector3(1, 0, 0), 5, 2.5, "wood")
+	_container(b, Vector3(17, 0, -28), true, "metal")
+	_awning(b, Vector3(22, 3.4, -23), Vector3(3.0, 0.4, 2.5))
+	for q in [Vector3(30, 0, -28), Vector3(19, 0, -25), Vector3(27, 0, -30)]:
+		_barrel(b, q)
+	_pallet(b, Vector3(25, 0, -27), true)
+	_box(b, Vector3(29, 0, -18), Vector3(2, 2.2, 2), "crate")
+	_wire_run(b, Vector3(18, 0, -30), Vector3(30, 0, -30))
+
+	# --- MID plaza floor read flatter than the rooftops around it. Low walls
+	# turn the top into a fight instead of a table you stand on.
+	_wall_run(b, Vector3(-7, 4, -2), Vector3(1, 0, 0), 6, 1.4, 0.8, "wall_b", [], 0)
+	_wall_run(b, Vector3(1, 4, 2), Vector3(0, 0, 1), 5, 1.4, 0.8, "wall_b", [], 0)
+	_box(b, Vector3(-2, 4, -5), Vector3(1.6, 1.2, 1.6), "crate")
+
 	# --- awnings off the terrace houses
 	for i in 3:
 		_awning(b, Vector3(-19, 4, -13.0 + i * 9.0), Vector3(2.5, 0.4, 4))

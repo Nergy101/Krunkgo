@@ -120,8 +120,12 @@ func _steer(delta: float) -> void:
 					# for 60-89% of a match, which is passive, not tactical.
 					var done: bool = weapon.reload_left <= 0.0 and weapon.mag > 0 \
 						and hurt > Tuning.bot_retreat_health and hurt_timer <= 0.0
-					if brain.cover_hold <= 0.0 and (done \
-							or Game.rng.randf() < Tuning.bot_leave_cover_chance):
+					# The random early peek is what stops cover reading as a
+					# script, but it must not fire mid-reload: popping out with
+					# an empty gun is worse than either behaviour on its own.
+					var may_peek: bool = weapon.reload_left <= 0.0 and weapon.mag > 0 \
+						and Game.rng.randf() < Tuning.bot_leave_cover_chance
+					if brain.cover_hold <= 0.0 and (done or may_peek):
 						brain.in_cover = false
 						brain.cover_cd = Game.rng.randf_range(5.0, 9.0)
 				var reloading: bool = weapon.reload_left > 0.0
@@ -189,9 +193,12 @@ func _steer(delta: float) -> void:
 						want_crouch = true
 						hop_left -= 1
 						if hop_left <= 0:
-							hop_rest = Game.rng.randf_range(0.9, 2.0)
+							hop_rest = Game.rng.randf_range(1.5, 3.0)
 				elif hop_rest <= 0.0:
-					hop_left = Game.rng.randi_range(2, 5)
+					# 2-5 hops with a 0.9-2.0 s rest still left one bot airborne
+					# 60% of a five-seed sweep: a hop is ~0.6 s of air, so five
+					# of them is three seconds up against two on the ground.
+					hop_left = Game.rng.randi_range(2, 4)
 
 	# Genuinely stuck: wedged on a corner or pathing into a wall. The previous
 	# version rolled a 25% jump chance EVERY TICK, so any blocked bot hopped
