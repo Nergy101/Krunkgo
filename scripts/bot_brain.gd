@@ -86,21 +86,30 @@ func wants_to_shoot() -> bool:
 		return false
 	var to: Vector3 = target.eye_position() - bot.eye_position()
 	var err := rad_to_deg(bot.aim_dir().angle_to(to.normalized()))
-	# generous up close, strict at range: mirrors how a human trades accuracy
-	# for volume in a brawl
-	var allow: float = 3.0 + 6.0 / maxf(1.0, to.length() * 0.15)
+	# Generous up close, strict at range: mirrors how a human trades accuracy
+	# for volume in a brawl. Widened from 3.0/6.0 — with a tight gate the bots
+	# held fire until they were perfectly lined up, so they fired half as often
+	# but a HIGHER share of those shots landed. Humans pull the trigger when
+	# roughly on target and miss a lot; that is what makes them survivable.
+	var allow: float = 4.0 + 7.0 / maxf(1.0, to.length() * 0.15)
 	return err < allow
 
 func note_shot(def: Dictionary) -> void:
 	if not bool(def["auto"]):
-		burst_pause = Game.rng.randf_range(0.12, 0.34) / skill
+		burst_pause = Game.rng.randf_range(0.25, 0.55) / skill
 		return
 	burst_left -= 1
 	if burst_left <= 0:
-		burst_left = int(Game.rng.randi_range(4, 9) * skill)
-		burst_pause = Game.rng.randf_range(0.18, 0.5) / skill
+		# Shorter bursts with longer gaps. Continuous fire from seven bots is
+		# what made the lobby feel like a firing squad.
+		burst_left = int(Game.rng.randi_range(3, 7) * skill)
+		burst_pause = Game.rng.randf_range(0.32, 0.75) / skill
 
 ## Aim error in degrees, shrinking the longer this bot has tracked its target.
 func aim_error() -> float:
-	var settle: float = clampf(1.0 - tracking_time * 1.6, 0.15, 1.0)
+	# Converges slower (0.9 instead of 1.6) and never below 45% of the base
+	# error. At a 0.15 floor a bot that had tracked you for half a second was
+	# accurate to under half a degree, which reads as an aimbot rather than an
+	# opponent.
+	var settle: float = clampf(1.0 - tracking_time * 0.9, 0.45, 1.0)
 	return Tuning.bot_aim_error_deg * settle / skill

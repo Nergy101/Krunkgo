@@ -8,6 +8,7 @@ var agent: NavigationAgent3D
 var roam_target := Vector3.ZERO
 var repath_timer: float = 0.0
 var stuck_time: float = 0.0
+var hop_route: bool = false   # decided per route, not per tick
 var preferred_range: float = 9.0
 var loadout_index: int = -1        # set by main so the lobby has a real mix
 
@@ -109,8 +110,10 @@ func _steer(delta: float) -> void:
 				# A sniper holding an angle should hold still; a brawler churns.
 				var strafe_weight: float = 0.35 if preferred_range > 20.0 and dist > 15.0 else 1.0
 				wish = fwd * approach + side * strafe_weight
-				if brain.jump_timer <= 0.0 and dist < 22.0 and Game.rng.randf() < 0.012:
-					brain.jump_timer = Game.rng.randf_range(0.8, 2.2)
+				# Was a jump roughly every second per bot, so the whole lobby
+				# read as popcorn. Now an occasional dodge.
+				if brain.jump_timer <= 0.0 and dist < 22.0 and Game.rng.randf() < 0.0035:
+					brain.jump_timer = Game.rng.randf_range(1.8, 3.6)
 					want_jump = true
 				# slide to break aim when strafing at speed, and always slide
 				# when running away — it is the fastest way out of a sightline
@@ -135,8 +138,11 @@ func _steer(delta: float) -> void:
 					wish = straight.normalized()
 			if agent.is_navigation_finished():
 				repath_timer = 0.0
-			# Cross open ground the way a player does: chain slide-hops.
-			if wish.length_squared() > 0.5 and motor.speed_flat > Tuning.slide_min_speed:
+			# Cross open ground the way a player does: chain slide-hops — but
+			# only on some routes. Every bot hopping every transit looked
+			# ridiculous and made them hard to read.
+			if hop_route and wish.length_squared() > 0.5 \
+					and motor.speed_flat > Tuning.slide_min_speed:
 				want_jump = true
 				want_crouch = true
 
@@ -158,6 +164,7 @@ func _steer(delta: float) -> void:
 
 func _repath() -> void:
 	repath_timer = Game.rng.randf_range(1.5, 3.5)
+	hop_route = Game.rng.randf() < 0.35
 	roam_target = _pick_roam_point()
 	agent.target_position = roam_target
 

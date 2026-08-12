@@ -106,10 +106,13 @@ var intermission_seconds: float = 6.0   # final-board hang time before auto-rest
 var bot_count: int = 7
 
 # ---------------------------------------------------------------------- BOTS
-var bot_reaction_min: float = 0.14
-var bot_reaction_max: float = 0.30
-var bot_aim_speed: float = 9.0
-var bot_aim_error_deg: float = 3.2
+var bot_reaction_min: float = 0.22
+var bot_reaction_max: float = 0.48
+var bot_aim_speed: float = 6.5
+# Raised from 3.2. Combined with a settle floor in BotBrain.aim_error() this
+# keeps bots dangerous without ever becoming a laser: they should punish you
+# for standing still, not delete you for being visible.
+var bot_aim_error_deg: float = 8.0
 var bot_fov_deg: float = 130.0
 var bot_sight_range: float = 90.0
 var bot_strafe_period: float = 0.85

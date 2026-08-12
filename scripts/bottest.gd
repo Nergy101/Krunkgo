@@ -16,9 +16,19 @@ const IDLE_SPEED := 0.4
 var elapsed: float = 0.0
 var samples: int = 0
 var stats: Dictionary = {}
+## Accuracy is the thing players actually feel, and nothing measured it.
+var shots_fired: int = 0
+var shots_landed: int = 0
 
 func _ready() -> void:
 	name = "BotTest"
+	await get_tree().process_frame
+	for a in Game.actors:
+		var bot := a as Bot
+		if bot == null or bot.weapon == null:
+			continue
+		bot.weapon.fired.connect(func(_d, _m, _dir): shots_fired += 1)
+		bot.weapon.landed.connect(func(_z, _dmg, _p, _n, _v, _k): shots_landed += 1)
 
 func _physics_process(delta: float) -> void:
 	elapsed += delta
@@ -91,5 +101,11 @@ func _finish() -> void:
 	out["total_jumps"] = total_jump
 	out["total_slide_ticks"] = total_slide
 	out["total_oob_ticks"] = total_oob
+	out["bot_shots_fired"] = shots_fired
+	out["bot_shots_landed"] = shots_landed
+	out["bot_hit_rate"] = snappedf(float(shots_landed) / maxf(1.0, float(shots_fired)), 0.001)
+	out["bot_jumps_per_sec"] = snappedf(float(total_jump) / RUN_SECONDS, 0.01)
+	# What a player actually feels is incoming hits per second, not the ratio.
+	out["bot_hits_per_sec"] = snappedf(float(shots_landed) / RUN_SECONDS, 0.01)
 	print("BOTTEST ", JSON.stringify(out))
 	get_tree().quit(0)
