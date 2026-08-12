@@ -48,6 +48,12 @@ const ADS_ARM_DROP := {
 	"assault": 0.34, "sniper": 0.30, "shotgun": 0.32, "smg": 0.36, "pistol": 0.40,
 }
 var _ads_arm_drop: float = 0.34
+var _near_z: float = 0.0
+## Minimum clearance between the lens and the gun's nearest geometry when
+## aimed. The reference keeps an aimed weapon under about a third of frame
+## height; hand-tuned per-weapon depths put ours at half and swallowed the
+## crosshair.
+const ADS_NEAR_CLEAR := 0.92
 var ads_pos := Vector3(0.0, -0.10, ADS_DEPTH)
 var rest_rot := Vector3(0.045, 0.150, -0.235)     # the cant
 ## Krunker's signature is a CANTED, off-centre gun, and zeroing the cant on ADS
@@ -146,6 +152,12 @@ func _box(parent: Node3D, size: Vector3, pos: Vector3, col: Color,
 	mi.mesh = bm
 	mi.position = pos
 	mi.rotation = rot
+	if parent == _model:
+		# Nearest-to-lens bound of the gun itself (arms excluded). ADS depth is
+		# solved against this, because tuning depth purely for sight alignment
+		# left the stock half a metre from the camera filling the frame.
+		var reach: float = pos.z + size.z * 0.5 + absf(size.y * sin(rot.x)) * 0.5
+		_near_z = maxf(_near_z, reach)
 	var m := StandardMaterial3D.new()
 	m.albedo_color = col
 	m.roughness = 0.72
@@ -160,6 +172,7 @@ func build_for(key: String) -> void:
 		_model.queue_free()
 	_model = Node3D.new()
 	add_child(_model)
+	_near_z = 0.0
 	_arms = Node3D.new()
 	_model.add_child(_arms)
 	_arms_trigger = Node3D.new()
@@ -244,7 +257,11 @@ func build_for(key: String) -> void:
 	# Put the sight on the camera axis when aimed. Previously ads_pos was a
 	# hand-picked constant, so the sight picture sat well above the crosshair
 	# and the two disagreed about where the bullet was going.
-	var depth: float = float(ADS_DEPTH_BY_KEY.get(key, ADS_DEPTH))
+	# Solve depth so the nearest gun geometry clears the lens, then take the
+	# further of that and the per-weapon hint. ADS_DEPTH_BY_KEY is now a floor,
+	# not the answer.
+	var solved: float = -(ADS_NEAR_CLEAR + _near_z)
+	var depth: float = minf(float(ADS_DEPTH_BY_KEY.get(key, ADS_DEPTH)), solved)
 	_ads_arm_drop = float(ADS_ARM_DROP.get(key, 0.34))
 	# Solve for where the sight ends up AFTER the ADS cant is applied. Using the
 	# unrotated sight_local only lands on the camera axis if the gun is
