@@ -20,7 +20,6 @@ var current: String = "trigger"
 var wait_left: float = 0.0          # respawn lockout; you may pick during it
 var pending: String = ""
 var hovered: int = -1
-var _prev_mouse_mode: int = Input.MOUSE_MODE_CAPTURED
 
 func _ready() -> void:
 	layer = 20                       # above the HUD
@@ -40,13 +39,17 @@ func show_for(current_id: String, lockout: float) -> void:
 	hovered = -1
 	open = true
 	visible = true
-	_prev_mouse_mode = Input.mouse_mode
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func close() -> void:
 	open = false
 	visible = false
-	Input.mouse_mode = _prev_mouse_mode
+	# Always hand back a captured mouse: this screen only ever closes into
+	# gameplay. Restoring whatever mode was live when it OPENED looked tidier
+	# but broke the very first spawn — main._ready() shows the picker before it
+	# captures the mouse, so the picker saved MOUSE_MODE_VISIBLE and handed it
+	# back, and Player gates all movement on the mouse being captured.
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _card_rect(i: int, size: Vector2) -> Rect2:
 	var n: int = WeaponDefs.CLASSES.size()

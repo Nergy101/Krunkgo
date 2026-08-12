@@ -151,6 +151,7 @@ that print one line of JSON:
 make movetest    # slide-hop gain, strafe bonus, jump apex, wall-jump
 make bottest     # per-bot idle, engagement, retreat, cover, slide
 make hittest     # shots-to-kill vs the sourced table, falloff, first-shot accuracy
+make classtest   # class-select state machine, incl. handing control back to gameplay
 make bench       # frame timings with vsync off
 make round       # all of the above plus every screenshot
 ```

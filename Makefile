@@ -25,7 +25,7 @@ TEMPLATE   := $(TEMPLATES)/$(GODOT_VER).stable.mono/macos.zip
 
 .DEFAULT_GOAL := help
 .PHONY: help run debug release export play import check probes movetest bottest \
-        hittest bench shots round templates templates-install clean distclean
+        hittest classtest bench shots round templates templates-install clean distclean
 
 ## ---------------------------------------------------------------- meta
 
@@ -106,7 +106,7 @@ bench: import ## frame timings as JSON, vsync off, full bot fight
 shots: import ## fixed-angle map screenshots into shots/$(ROUND)
 	@$(GODOT) --path . --resolution $(RES) -- shots=res://shots/$(ROUND) shotset=map seed=$(SEED) 2>&1 | grep -E '^SHOT'
 
-probes: movetest bottest hittest ## run all three measurement probes
+probes: movetest bottest hittest classtest ## run every measurement probe
 
 movetest: import ## movement envelope: slide-hop gain, strafe bonus, wall-jump
 	@$(GODOT) --path . --resolution 1280x720 -- movetest seed=$(SEED) 2>&1 | grep -E '^MOVETEST'
@@ -116,6 +116,9 @@ bottest: import ## bot behaviour: idle, engagement, retreat, cover, slide
 
 hittest: import ## hit registration: shots-to-kill, falloff, first-shot accuracy
 	@$(GODOT) --path . --resolution 1280x720 -- hittest seed=$(SEED) 2>&1 | grep -E '^HITTEST'
+
+classtest: import ## class-select state machine, including returning control
+	@$(GODOT) --path . --resolution 1280x720 -- classtest seed=$(SEED) 2>&1 | grep -E '^CLASSTEST'
 
 ## ---------------------------------------------------------------- cleaning
 

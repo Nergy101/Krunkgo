@@ -97,7 +97,7 @@ func _ready() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Headless probes self-register under a flag. Guarded by ResourceLoader so a
 	# probe file that does not exist yet is simply skipped.
-	for probe in ["movetest", "bottest", "hittest"]:
+	for probe in ["movetest", "bottest", "hittest", "classtest"]:
 		var path := "res://scripts/%s.gd" % probe
 		if Harness.want(probe) and ResourceLoader.exists(path):
 			add_child(load(path).new())
@@ -178,6 +178,8 @@ func _on_class_chosen(id: String) -> void:
 ## Screenshot and probe runs have nobody at the keyboard, so they must never
 ## sit on a menu waiting for a key that will not come.
 func _interactive() -> bool:
+	if Harness.want("classtest"):
+		return true                      # this probe exists to drive the picker
 	return not Harness.active and not Harness.botfight and not Harness.want("movetest") \
 		and not Harness.want("bottest") and not Harness.want("hittest")
 
