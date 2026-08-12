@@ -73,6 +73,7 @@ func _ready() -> void:
 	add_child(free_cam)
 	free_cam.process_mode = Node.PROCESS_MODE_PAUSABLE
 
+	Harness.register_shot_set("ads", _shots_ads)
 	Harness.register_shot_set("map", _shots_map)
 	Harness.register_shot_set("game", _shots_game)
 	Harness.register_shot_set("default", _shots_game)
@@ -200,6 +201,28 @@ func _use_bot_shoulder_cam(a: Actor) -> void:
 ## so the frame lied: dead player, frozen ammo, gun floating over someone
 ## else's fight. Driving the real player through the real Motor and Weapon
 ## keeps every overlay honest, which is what the visual critics judge.
+## Locked aim-down-sights, one frame per weapon. The sight has to sit exactly on
+## the camera axis, because that is where the bullet goes and the crosshair is
+## hidden while aiming. Regression evidence for that alignment.
+func _shots_ads(h) -> void:
+	player.enable_autopilot()
+	player.camera.current = true
+	viewmodel_visible(true)
+	player.set_physics_process(false)
+	player.velocity = Vector3.ZERO
+	for i in mini(5, WeaponDefs.LOADOUT.size()):
+		var key: String = WeaponDefs.LOADOUT[i]
+		player.weapon.equip(key)
+		player.weapon.switch_left = 0.0
+		player.viewmodel.build_for(key)
+		player.weapon.ads = true
+		player.weapon.ads_amount = 1.0
+		# let the viewmodel spring settle onto the aim position
+		for f in 40:
+			player.viewmodel.update_view(1.0 / 60.0, 0.0, true, 1.0, Vector2.ZERO, 0.0)
+			await get_tree().process_frame
+		await h.capture("ads_%s" % key, 3)
+
 func _shots_game(h) -> void:
 	player.enable_autopilot()
 	player.camera.current = true

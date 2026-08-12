@@ -47,7 +47,9 @@ Space                   jump; hold it, auto-bhop is on
 Shift                   slide
 Shift + Space           slide-hop. Chains to 16.5 m/s from a base of 7.5
 Space into a wall       wall-jump, two charges, restored on landing
-LMB / RMB               fire / aim. Standing still and aimed gives a pinpoint first shot
+LMB / RMB               fire / aim. Aiming hides the crosshair and puts the weapon's
+                        own sight exactly on the impact point. Standing still and
+                        aimed gives a pinpoint first shot
 R                       reload
 V                       melee
 1 2 3 / Q               weapon slots / cycle

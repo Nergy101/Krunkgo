@@ -102,6 +102,9 @@ func _autopilot_step(delta: float) -> void:
 		var d: Vector3 = aim_at - eye_position()
 		yaw = lerp_angle(yaw, atan2(-d.x, -d.z), clampf(delta * 11.0, 0.0, 1.0))
 		pitch = lerpf(pitch, atan2(d.y, Vector2(d.x, d.z).length()), clampf(delta * 11.0, 0.0, 1.0))
+		# Aim down sights at range like a player would; this is also what puts
+		# ADS into the captured screenshots so it can be reviewed at all.
+		weapon.ads = to.length() > 12.0
 		if autopilot.wants_to_shoot() and weapon.try_fire():
 			autopilot.note_shot(weapon.def)
 	else:
@@ -160,7 +163,8 @@ func _process(delta: float) -> void:
 	var active: bool = alive and input_enabled and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if active:
 		_handle_actions()
-	weapon.ads = active and Input.is_action_pressed("aim")
+	if autopilot == null:
+		weapon.ads = active and Input.is_action_pressed("aim")
 	_update_camera(delta)
 	_animate_body(delta)
 	_regen(delta)

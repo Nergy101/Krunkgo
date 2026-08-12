@@ -15,7 +15,12 @@ extends Node3D
 const VM_FOV := 62.0
 
 var rest_pos := Vector3(0.215, -0.170, -1.06)
-var ads_pos := Vector3(0.0, -0.088, -0.62)
+## Filled per weapon in build_for(): where that model's sight sits in local
+## space. ADS then places the gun so this point lands exactly on the camera
+## axis, i.e. dead centre of the screen, which is where the bullet goes.
+var sight_local := Vector3(0.0, 0.10, 0.0)
+const ADS_DEPTH := -0.56
+var ads_pos := Vector3(0.0, -0.10, ADS_DEPTH)
 var rest_rot := Vector3(0.035, 0.130, -0.185)     # the cant
 var ads_rot := Vector3(0.0, 0.0, 0.0)
 
@@ -141,6 +146,7 @@ func build_for(key: String) -> void:
 			_box(_model, Vector3(0.07, 0.10, 0.30), Vector3(0, 0.005, 0.32), dark)     # stock
 			_box(_model, Vector3(0.035, 0.075, 0.16), Vector3(0, 0.10, -0.34), dark)   # sight block
 			_box(_model, Vector3(0.02, 0.05, 0.02), Vector3(0, 0.145, -0.55), brass)   # front post
+			sight_local = Vector3(0, 0.145, -0.45)
 			_box(_model, Vector3(0.11, 0.035, 0.22), Vector3(0, -0.075, -0.44), dark)  # handguard
 			muzzle_z = -1.00
 		"sniper":
@@ -149,6 +155,7 @@ func build_for(key: String) -> void:
 			_box(_model, Vector3(0.085, 0.085, 0.34), Vector3(0, 0.125, -0.14), dark)  # scope
 			_box(_model, Vector3(0.05, 0.05, 0.10), Vector3(0, 0.125, -0.33), gun)
 			_box(_model, Vector3(0.10, 0.10, 0.03), Vector3(0, 0.125, -0.32), Color8(96, 178, 206))
+			sight_local = Vector3(0, 0.125, -0.30)
 			_box(_model, Vector3(0.035, 0.06, 0.06), Vector3(0, 0.075, -0.02), dark)   # bolt
 			_box(_model, Vector3(0.06, 0.045, 0.14), Vector3(0.075, 0.055, 0.06), gun) # bolt handle
 			_box(_model, Vector3(0.08, 0.23, 0.13), Vector3(0, -0.17, 0.02), wood)     # grip
@@ -161,6 +168,7 @@ func build_for(key: String) -> void:
 			_box(_model, Vector3(0.08, 0.22, 0.12), Vector3(0, -0.16, 0.04), dark)
 			_box(_model, Vector3(0.085, 0.13, 0.30), Vector3(0, -0.02, 0.34), wood_d)
 			_box(_model, Vector3(0.03, 0.03, 0.03), Vector3(0, 0.075, -0.90), brass)
+			sight_local = Vector3(0, 0.075, -0.90)
 			muzzle_z = -0.95
 		"smg":
 			_box(_model, Vector3(0.095, 0.115, 0.50), Vector3(0, 0, -0.06), gun)
@@ -169,14 +177,20 @@ func build_for(key: String) -> void:
 			_box(_model, Vector3(0.07, 0.16, 0.095), Vector3(0, -0.13, 0.17), gun)
 			_box(_model, Vector3(0.05, 0.075, 0.22), Vector3(0, 0.0, 0.28), dark)      # wire stock
 			_box(_model, Vector3(0.03, 0.055, 0.10), Vector3(0, 0.088, -0.24), dark)
+			sight_local = Vector3(0, 0.088, -0.24)
 			muzzle_z = -0.56
 		_:
 			_box(_model, Vector3(0.08, 0.145, 0.34), Vector3(0, 0, -0.05), gun)
 			_box(_model, Vector3(0.048, 0.048, 0.12), Vector3(0, 0.02, -0.26), dark)
 			_box(_model, Vector3(0.072, 0.19, 0.105), Vector3(0, -0.16, 0.045), dark)
 			_box(_model, Vector3(0.025, 0.04, 0.03), Vector3(0, 0.078, -0.16), brass)
+			sight_local = Vector3(0, 0.078, -0.16)
 			muzzle_z = -0.34
 	_muzzle.position = Vector3(0, 0.012, muzzle_z)
+	# Put the sight on the camera axis when aimed. Previously ads_pos was a
+	# hand-picked constant, so the sight picture sat well above the crosshair
+	# and the two disagreed about where the bullet was going.
+	ads_pos = Vector3(-sight_local.x, -sight_local.y, ADS_DEPTH)
 
 func punch(amount: float) -> void:
 	kick = maxf(kick, amount)
@@ -199,6 +213,10 @@ func update_view(delta: float, speed_ratio: float, grounded: bool, ads_amount: f
 	var target_pos: Vector3 = rest_pos.lerp(ads_pos, ads_amount)
 	var target_rot: Vector3 = rest_rot.lerp(ads_rot, ads_amount)
 	var bob_scale: float = 1.0 - 0.8 * ads_amount
+	# Sway has to fall away with ADS too. It was applied at full strength while
+	# aimed, which walked the sight off the camera axis and put the sight
+	# picture somewhere other than where the bullet was going.
+	var steady: float = 1.0 - ads_amount
 
 	# reload dips the gun out of frame and rolls it, then brings it back
 	var dip: float = sin(clampf(reload_t, 0.0, 1.0) * PI)
@@ -206,9 +224,9 @@ func update_view(delta: float, speed_ratio: float, grounded: bool, ads_amount: f
 	var w: float = clampf(delta * 17.0, 0.0, 1.0)
 	position = position.lerp(target_pos
 		+ bob * bob_scale
-		+ Vector3(sway.x, sway.y, 0.0)
-		+ Vector3(0, -dip * 0.20, kick * 0.34), w)
+		+ Vector3(sway.x, sway.y, 0.0) * steady
+		+ Vector3(0, -dip * 0.20, kick * 0.34 * (0.35 + 0.65 * steady)), w)
 	rotation = Vector3(
-		lerpf(rotation.x, target_rot.x + kick_rot * 0.14 - dip * 0.9, w),
-		lerpf(rotation.y, target_rot.y + sway.x * 1.5, w),
-		lerpf(rotation.z, target_rot.z - sway.x * 2.0 + dip * 0.5, w))
+		lerpf(rotation.x, target_rot.x + kick_rot * 0.14 * (0.4 + 0.6 * steady) - dip * 0.9, w),
+		lerpf(rotation.y, target_rot.y + sway.x * 1.5 * steady, w),
+		lerpf(rotation.z, target_rot.z - sway.x * 2.0 * steady + dip * 0.5, w))

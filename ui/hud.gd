@@ -197,14 +197,22 @@ func _draw_crosshair(c: Vector2) -> void:
 	# Unclamped this reached 116 on the rifle and ~313 on a moving shotgun, and
 	# the bottom dash then collided with the speed readout.
 	var gap := 22.0
+	var fade := 1.0
 	if player and player.weapon:
 		gap = minf(20.0 + player.weapon.spread_degrees() * 12.0, 170.0)
+		# Aiming replaces the crosshair with the weapon's own sights, which now
+		# sit on the camera axis. Leaving both up gave two competing aim points.
+		fade = 1.0 - clampf(player.weapon.ads_amount * 1.35, 0.0, 1.0)
+	if fade <= 0.01:
+		return
 	var length := 16.0
+	var line := Color(WHITE.r, WHITE.g, WHITE.b, fade)
+	var edge := Color(OUTLINE.r, OUTLINE.g, OUTLINE.b, OUTLINE.a * fade)
 	for v in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
 		var a: Vector2 = c + v * gap
 		var b: Vector2 = c + v * (gap + length)
-		root.draw_line(a + Vector2(1.5, 1.5), b + Vector2(1.5, 1.5), OUTLINE, 5.0)
-		root.draw_line(a, b, WHITE, 2.6)
+		root.draw_line(a + Vector2(1.5, 1.5), b + Vector2(1.5, 1.5), edge, 5.0)
+		root.draw_line(a, b, line, 2.6)
 
 func _draw_hitmarker(c: Vector2) -> void:
 	if hitmarker <= 0.0:
