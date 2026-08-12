@@ -1,415 +1,148 @@
 # BLOCKSHOT — gauntlet progress
 
 Single-player voxel arena FPS in Godot 4.7. **Bar: [Krunker.io](https://krunker.io/)**.
-Builders build, separate harsh critics compare our output against real Krunker,
-we act on the gaps, repeat. Exit is winning the comparison, never a round count.
+Builders build, separate harsh critics with fresh context compare our output
+against real Krunker screenshots, we act on the gaps, repeat. Exit is winning
+the comparison, never a round count.
 
 ---
 
-## Status — critic round 2 complete
+## Status — all nine pieces won
 
-All nine pieces have now been judged. It took six attempts: four critics died
-mid-analysis twice over, burning their budget on exhaustive pixel work and
-yielding nothing.
+Every piece has been picked over Krunker by a fresh critic judging the
+finished build. The last one took five verdicts to get there.
 
-| Piece | r1 | r2 | What r2 caught |
+| Piece | r1 | r2 | r3 | final | What the final verdict turned on |
+|---|---|---|---|---|---|
+| Match flow | – | **OURS** | – | **OURS** | every signal traced to an emitter and a listener |
+| Block art | KRUNKER | KRUNKER | **OURS** | **OURS** | sky within 2.4 channel-points of Burg |
+| Movement | KRUNKER | KRUNKER | **OURS** | **OURS** | late re-jump penalty finally exercised |
+| HUD | KRUNKER | KRUNKER | **OURS** | **OURS** | ammo cluster rebuilt to the reference layout |
+| Weapon feedback | – | KRUNKER | – | **OURS** | flash and tracer visible in every fired frame |
+| Hit registration | – | KRUNKER | – | **OURS** | all five weapons match the sourced table |
+| Bots | KRUNKER | KRUNKER | KRUNKER | **OURS** | no stranded bot in 35 samples |
+| Map | KRUNKER | KRUNKER | KRUNKER | **OURS** | three roof silhouettes, 5.3× cover spread |
+| Viewmodel | – | KRUNKER | KRUNKER | **OURS** | canted ADS with hands, crosshair kept |
+
+Four critics also died mid-analysis across rounds 2 and 3, burning their run on
+exhaustive pixel work and yielding nothing. Later assignments told them to
+answer in one or two passes and to yield a rough verdict over a perfect one
+they never deliver.
+
+---
+
+## The bugs the critics found that we could not see
+
+Every one of these was invisible from the code and only showed up because
+something outside the code compared output against a reference.
+
+**Every muzzle flash was a screen-filling white slab.** Godot's billboard
+shader discards node scale unless `billboard_keep_scale` is set, so a 1×1 quad
+rendered at full size half a metre from the lens on every shot. The critic only
+reported "no flash appears in any frame". Chasing that found the slab.
+
+**Tracers were invisible.** At 420 m/s a 20 m shot lives under 50 ms — three
+frames. Now 140 m/s with an 11 m segment.
+
+**Every hand-built face was wound backwards.** Back-face culling was removing
+the *near* faces, so you looked through walls into interiors. The fix was one
+vertex order; it also silently doubled the shadow cost that had been hidden.
+
+**A third of the spawns were inside solid rock.** Widening the perimeter towers
+swallowed four. The only symptom was three bots idle at 95% in a probe.
+
+**One bot spawned in a sealed pocket** and paced a 9 m box for entire matches.
+The geometry test passed it happily — being inside no box says nothing about
+being connected to anything.
+
+**The shotgun did 120 damage against a sourced ~50**, one-shotting where
+Krunker needs two. The probe had derived its expectations from our own weapon
+table and reported "ALL MATCH SOURCED REFERENCE" while it was 2.4× out.
+
+**`seed=7` controlled almost nothing.** 24 call sites use the bare `randf()`
+family, which Godot auto-seeds from the clock, so runs of the same seed differed
+— even the baked textures. A critic read one bad sample as a stranded bot; it
+was a lottery ticket. Now the global RNG is seeded and bot claims come from a
+five-seed sweep.
+
+**`#` is not a comment in `project.godot`.** Two `#` lines silently voided the
+key beneath them, so `import_etc2_astc` read back as `false` while the file
+plainly said `true`, and `make release` refused to export. Comments there must
+start with `;`.
+
+---
+
+## Measured results
+
+Movement, from `movetest`:
+
+| | measured | source |
+|---|---|---|
+| walk | 7.50 m/s | — |
+| slide-hop peak | 16.50 m/s | — |
+| slide-hop gain | 2.20× | "faster than any other movement type" |
+| distance gain over 3 s | 1.68× | — |
+| strafe bonus | 1.20× | documented 1.2 default |
+| stairs climbed, no jump | 2.80 of 3.00 m | one block must be walkable |
+| wall-jumps performed | 2 | matches the 2-charge setting |
+| late re-jump penalty | 0.892 | 0.88 setting, +1 tick of accel |
+
+Shots to kill, from `hittest`, against the table in `reference/krunker-weapons.md`
+(the expectations live in the probe as data, so it cannot agree with itself):
+
+| weapon | body | head | source |
 |---|---|---|---|
-| Match flow | – | **OURS** | dead signals, since wired to the HUD |
-| Movement | KRUNKER | KRUNKER | wall-jump existed but no probe exercised it |
-| Bots | KRUNKER | KRUNKER | `bot_leave_cover_chance` declared and never referenced |
-| Hit registration | – | KRUNKER | zone-purity filter silently voided every shotgun measurement |
-| HUD | KRUNKER | KRUNKER | speed readout was chewing the bottom crosshair dash |
-| Art | KRUNKER | KRUNKER | ground reads cool and flat; sky too saturated |
-| Map | KRUNKER | KRUNKER | perimeter is monotonous; massing still sparse |
-| Weapon feedback | – | KRUNKER | **no effect appeared in any of 5 frames** |
-| Viewmodel | – | KRUNKER | rifle read as a grey wedge, hiding its own parts |
+| assault | 5 | 3 | 5 / 3 |
+| pistol | 5 | 4 | 5 / 4 |
+| shotgun | 2 | 2 | 2 / 2 point-blank |
+| smg | 6 | 6 | 6 / 6 |
+| sniper | 1 | 1 | 1 / 1 |
 
-One OURS. The loop is doing its job.
+Bots, five seeds × seven bots from `tools/botsweep.sh`:
 
-### The two bugs round 2 found that were invisible to us
-
-**Every muzzle flash was a screen-filling white slab.** The weapon critic noted
-no flash, tracer or casing appeared in any captured frame. Chasing that
-surfaced something far worse: Godot's billboard shader **discards node scale**
-unless `billboard_keep_scale` is set. Every resize of the flash quad had been
-silently ignored, so a 1x1 mesh rendered at full size half a metre from the
-lens — on every shot, in play, the whole time. Fixed, plus the quad now scales
-with camera distance so it subtends a constant angle.
-
-**Tracers were invisible.** At `TRACER_SPEED` 420 m/s a 20 m shot lived under
-50 ms, three frames at 60 fps. Dropped to 140 m/s with a longer segment; it now
-reads as a streak.
-
-Both were only findable because a critic insisted on evidence from the frames
-rather than from the source. `shotset=fx` now fires and captures on the next
-frame, so transient feedback is provable instead of assumed.
-
-**The rifle now parses as a rifle.** Its receiver box was so large it occluded
-the magazine, grip and stock behind it. Slimmed, with the magazine and grip
-canted clear of the silhouette and a fourth tone so the shape has internal
-contrast.
-
-## The see-through bug — root cause
-
-Reported twice by the user. Two independent causes; I fixed the wrong one first.
-
-1. **Zero-width wall piers.** A fixed 3-wide doorway punched into a 4-long wall
-   face left a 0-wide pier, which renders inverted and vanishes.
-   `MapBuilder._validate()` now runs at load and prints
-   `MAPCHECK {"boxes":605,"degenerate":0}`; doorways are sized to their wall.
-   A real bug, but not the one being seen.
-2. **Every hand-built face was wound backwards.** `_emit_box` emitted
-   `[0,1,2,0,2,3]` — right-hand-rule order — but Godot treats clockwise-from-
-   the-front as the front face. Back-face culling therefore removed the *near*
-   side of every box: you looked through walls into buildings, and through
-   crates and containers. Proven by rendering once with `CULL_DISABLED`, which
-   made everything solid. Fixed by flipping to `[0,2,1,0,3,2]`.
-
-The second bug had been present since the first map and was also corrupting the
-lighting, since every visible surface was lit by an inward-pointing normal.
-`Blockman` and `Viewmodel` were never affected because they use engine
-`BoxMesh` — which is why characters and guns always looked right.
-
-It also **inflated every performance number recorded before now**: with front
-faces culled, most geometry was skipped in both the camera and shadow passes.
-Correct geometry costs real work, so the shadow budget dropped to 2 splits, a
-62 m range and a 2048 map. Honest figure: **116-128 fps avg, p50 7.6-9.1 ms,
-p95 10-11 ms** at 1600x900. An earlier 31 fps reading was CPU contention from
-nine critics running image analysis, not a regression. SSAO measures free.
-
-## Round 1 detail
-
-| Piece | Round 1 finding |
+| | value |
 |---|---|
-| Movement | wall-jump entirely missing |
-| Map | 1 prop per 154 m², none indoors or on a roof |
-| Art | 43-58% saturation vs Burg's 27-29%; our textures had *less* detail than the bar |
-| HUD | crosshair 4x too tight, measured in pixels |
-| Bots | zero health awareness |
+| engagement, min / mean / max | 38.1% / 53.8% / 78.0% |
+| bots below 10% engagement | 0 of 35 |
+| bot-samples that use cover | 85.7% |
+| worst air time | 41.8% |
+| incoming hits per second | 1.0 – 2.1 |
 
+Map: 778 boxes, 0 degenerate, 0 coplanar faces, 12 of 12 spawns usable and
+mutually reachable, cover spread across 16 m cells down from 69× to 5.3×.
 
-### Hit registration — `godot --path . -- hittest`
+**Performance is a cap, not a measurement.** `make bench` has returned exactly
+120.0 fps and exactly 60.0 fps on the same build, and returns the same figure
+with 0 bots or 7, at 640×360 or 1600×900, with the physics tick at 60/120/240.
+vsync is genuinely off. Push past it with resolution for the real curve:
+**63.4 fps at 2560×1440, 45.7 at 4K.**
 
-```
-WEAPON    first-shot dev  body dmg  STK  sourced ref  head dmg  STK head
-assault      0.0096 m        23.0     5       5          34.5       3
-pistol       0.0096 m        34.0     3       3          54.4       2
-smg          0.0096 m        18.0     6       6          18.0       6
-sniper       0.0096 m       100.0     1       1         150.0       1
-shotgun      0.9395 m        18.55    6       —          23.19       5
-self_hits_total: 0
-```
+---
 
-Every shots-to-kill matches `reference/krunker-weapons.md`. The SMG's head
-damage equalling its body damage is the sourced Krunker quirk — it is the one
-weapon with no headshot bonus — and it falls out of the per-weapon `hs_mult`
-rather than a special case. Zone boxes now derive from `Blockman.ZONES`, the
-same numbers the visible model is built from, and there are four of them: the
-old three-box layout had no zone for the arms at all.
+## Deliberate departures from the bar
 
-Four probe bugs had to be fixed before any of those numbers meant anything:
-moving the dummy and raycasting in the same frame queried its **old** transform
-(Area3D reaches the physics server on flush) so everything read zero hits;
-recoil accumulated across the batch and walked the shots off target; the
-first-shot metric never reset `shots_in_burst` so it measured a burst; and
-`is_first_shot()` was consulted *after* `shots_in_burst` was incremented, so the
-opener could never qualify.
+- **Bots were detuned on request** after play testing: incoming hits/sec 1.79 →
+  0.43 on the same seed, jumps/sec 10.29 → 5.21. Aim error 3.2° → 8.0° with a
+  settle floor so tracking never becomes a laser.
+- **Movement envelope scaled down about a third** after play testing said
+  crossing the 64 m arena in 2.5 s was frantic rather than fast. Ratios kept.
+- **Single-block steps are walkable.** `CharacterBody3D` has no step-up, so
+  every 1 m riser stopped you dead until `Motor._step_up()`.
+- **Classes at spawn.** Four loadouts, each a primary plus the pistol.
 
-**Every critic that has reported says KRUNKER wins.** That is the loop working as
-designed, not a failure. Round 2 of critics has not run yet.
-
-## Measured results
-
-### Performance — `tools/round.sh r12`
-
-```
-avg_fps 133.7 · p50 6.96 ms · p95 10.65 ms · p99 13.06 ms
-draw calls 239 · primitives 40514 · nodes 975
-```
-
-Vsync finally released, so this is a real headroom figure rather than a pinned
-60. Comfortably above the 120 fps floor with 40k primitives on screen.
-
-### Movement — `godot --path . -- movetest`
-
-```
-peak_walk_mps       11.000     slidehop_gain_ratio  1.773
-peak_slidehop_mps   19.500     strafe_gain_ratio    1.200   (matches Krunker's documented default)
-hops_to_peak             3     jump_apex_m          1.173
-turn_retention       0.833     hard_cap_mps        26.000
-```
-
-Three real bugs found getting there: ground friction ran on the tick you left
-the floor and taxed every launch; the probe was measuring a collision with a
-building; and its crouch input was gated on `velocity.y < 0`, which
-`move_and_slide` zeroes on the landing tick — exactly the tick the slide starts.
-
-### Bots — `godot --path . -- bottest`
-
-| metric | before | after |
-|---|---|---|
-| worst idle | 97.3% | 30.1% |
-| avg engagement | 24.3% | 45.4% |
-| slide ticks | 0 | 155 |
-| out-of-bounds | 0 | 0 |
-
-The mid-air hang I diagnosed from a screenshot did not exist. The real defect
-was an unstick rule rolling a 25% jump chance *every tick*, so any blocked bot
-hopped 120×/second forever.
-
-## Critic round 1 — verdicts and what they caught
-
-All five ran read-only with fresh context against `reference/bar/`.
-
-**Bots — KRUNKER.** No health awareness anywhere: a bot at 15 HP pushed a
-shotgun exactly like one at 100. Also caught that three of seven bots had zero
-slide ticks, so my "intended slide-hop traversal" explanation of high air time
-was only true for the other four. Fixed: `Tuning.bot_retreat_health`, retreat
-branch, sniper stillness weighting.
-
-**Movement — KRUNKER.** Wall-jump is a class-defining Krunker mechanic and did
-not exist in any form. Also spotted that `slide_speed_cap = 19.5` saturated the
-chain by hop 3, making `hard_speed_cap = 26` unreachable. Fixed: wall-jump with
-charges reset on landing, cap raised to 23.5.
-
-**Map — KRUNKER.** Counted it: 25 prop boxes across 3,844 m², one per 154 m²,
-**none** indoors or on a roof, against 6–10 discrete props in every reference
-frame. Also found the three-storey guardhouse billed as "the only roof that sees
-the whole map" was unreachable — `_building` emitted floor slabs with no stairs
-between them. Fixed: prop vocabulary (containers, barrels, pallets, telegraph
-runs, awnings), interior stairwells, three cover heights, crenellated perimeter
-with towers at varied heights.
-
-**HUD — KRUNKER.** Pixel-measured the reticle: Krunker rests at a 36 px gap with
-10 px dashes at 576h (16% of screen height); ours was 14 px and 7 px, about a
-quarter of the footprint, and the speed readout sat inside the reticle. Fixed to
-the measured numbers.
-
-**Art — KRUNKER.** Sampled HSV directly: our field ran 43–58% saturation against
-Burg's 27–29%, with neutral-grey pixels at 0.4–3.4% versus the bar's 7–23%. It
-also **refuted my own assumption** — I worried the procedural textures looked
-noisy; it measured our high-frequency sigma at 7.8–16.2 against the bar's
-14.4–24.2 and showed we had *less* surface detail, not more. Applied its exact
-palette and environment values and raised texture contrast.
-
-## Evidence pipeline — a defect worth recording
-
-The bot critic noticed our five "live bot fight" screenshots were the same
-static corner of a room with HP frozen at 100/100 and no enemy on screen. Under
-the harness the player has no input, so every visual critic was judging the game
-from five pictures of a wall.
-
-First fix attempt put a shoulder cam on an engaged bot. That showed combat but
-paired it with the *local player's* HUD and viewmodel, so the frame lied: dead
-player, frozen ammo, a gun floating over someone else's fight.
-
-Real fix: `Player.enable_autopilot()` drives the actual player through the
-actual `Motor` and `Weapon` using `BotBrain`, so the first-person view fights
-for real and every overlay is honest. `shots/r12/game_2.png` now shows an enemy,
-damage numbers, impact debris, a killfeed line and ammo counting down.
-Separately, the viewmodel is a `CanvasLayer` composite and kept drawing over the
-map shots — `main.viewmodel_visible(false)` now hides it for those.
-
-## Known defects, ranked
-
-1. **Critic round 2 has not run.** Every fix since round 1 is self-verified only,
-   and weapon feedback, hit registration, viewmodel and match flow have never
-   faced a critic at all.
-2. Bots still do not use cover deliberately — they retreat on low health now, but
-   nothing routes them behind geometry to break line of sight.
-3. `bottest` still cannot separate purposeful slide-hop traversal from time spent
-   airborne for any other reason, so `air_pct` remains an untrustworthy number.
-4. The shotgun's 0.94 m first-shot deviation is by design (pellet cone), but the
-   probe reports it in the same column as the precision weapons, which invites a
-   misreading.
+---
 
 ## How to run
 
 ```sh
-GODOT=/Applications/Godot_mono.app/Contents/MacOS/Godot
-$GODOT --headless --path . --import        # once; builds the class cache
-$GODOT --path .                            # play
-$GODOT --path . -- movetest                # movement metrics
-$GODOT --path . -- bottest                 # bot behaviour metrics
-tools/round.sh r13                         # parse + bench + all screenshots
+make run        # play from source
+make release    # export a real universal binary and run it
+make check      # parse every script, fail loudly
+make bench      # frame timings as JSON
+make movetest   # movement envelope
+make bottest    # bot behaviour
+make hittest    # shots-to-kill vs the sourced table
+make classtest  # 13 checks over the class-select state machine
+tools/round.sh <name>      # full evidence round into shots/<name>
+tools/botsweep.sh <dir>    # five-seed bot aggregate
 ```
-
-Controls: WASD, Space jump (auto-bhop), Shift slide, wall-jump by jumping into a
-wall mid-air, LMB fire, RMB ADS, R reload, 1/2/3 weapons, Q cycle, V melee,
-Tab scoreboard, F5 restart, Esc pause.
-
-## Resume here
-
-1. Weapon feedback pass — `fx.gd` and `audio.gd` are untouched since round 0.
-2. Hit-registration silhouette hitboxes plus `scripts/hittest.gd`.
-3. Critic round 2 across all pieces, including viewmodel and match flow which
-   have never been judged.## Status
-
-| Piece | Critic r1 | Critic r2 | Notes |
-|---|---|---|---|
-| Match flow | not judged | **OURS** | first piece to win |
-| Movement feel | KRUNKER | KRUNKER | wall-jump added + measured, cap freed to 26 |
-| Bot behaviour | KRUNKER | KRUNKER | cover-seeking added after `bot_leave_cover_chance` found dead |
-| Hit registration | not judged | KRUNKER | shotgun measurement was broken; now fixed |
-| HUD | KRUNKER | KRUNKER | crosshair now measures right; ammo chip added |
-| Block art + lighting | KRUNKER | agent died | palette values applied from r1 measurements |
-| Map geometry | KRUNKER | agent died | 25 -> ~150 props, stairwells, crenellation |
-| Weapon feedback | not judged | agent died | casings, per-weapon voices, travelling tracers |
-| Viewmodel | not judged | agent died | own SubViewport, no wall clipping |
-
-Four round-2 critics died mid-analysis. Five reported; **one said OURS.**
-
-## The see-through bug — root cause
-
-Reported twice by the user. It had two independent causes, and I fixed the
-wrong one first.
-
-1. **Zero-width wall piers.** A fixed 3-wide doorway punched into a 4-long wall
-   face left a 0-wide pier. `MapBuilder._validate()` now runs at load and prints
-   `MAPCHECK {"boxes":605,"degenerate":0}`; doorways are sized to their wall.
-   Real bug, but not the one the user was seeing.
-2. **Every hand-built face was wound backwards.** `_emit_box` emitted
-   `[0,1,2,0,2,3]`, the right-hand-rule order, but Godot treats clockwise-from-
-   the-front as the front face. Back-face culling therefore removed the *near*
-   side of every box: you looked through walls into buildings, and through
-   crates and containers. Proven by rendering once with `CULL_DISABLED`, where
-   everything became solid. Fixed by flipping to `[0,2,1,0,3,2]`.
-
-That second bug had been there since the first map and it was also corrupting
-the lighting, because every visible surface was lit by an inward-pointing
-normal. `Blockman` and `Viewmodel` were never affected — they use engine
-`BoxMesh`, which is why characters and guns always looked correct.
-
-**It also inflated every performance number ever recorded here.** With the front
-faces culled, most geometry was skipped in both the camera and shadow passes.
-Correct geometry costs real work, so the shadow budget was cut to 2 splits, a
-62 m range and a 2048 map. Honest figure now: **116-128 fps avg, p50 7.6-9.1 ms,
-p95 ~10-11 ms** at 1600x900. An earlier 31 fps reading was CPU contention from
-nine critics running image analysis, not a regression; SSAO measures free.
-
-## Measured results
-
-### Performance — `tools/round.sh r12`
-
-```
-avg_fps 133.7 · p50 6.96 ms · p95 10.65 ms · p99 13.06 ms
-draw calls 239 · primitives 40514 · nodes 975
-```
-
-Vsync finally released, so this is a real headroom figure rather than a pinned
-60. Comfortably above the 120 fps floor with 40k primitives on screen.
-
-### Movement — `godot --path . -- movetest`
-
-```
-peak_walk_mps       11.000     slidehop_gain_ratio  1.773
-peak_slidehop_mps   19.500     strafe_gain_ratio    1.200   (matches Krunker's documented default)
-hops_to_peak             3     jump_apex_m          1.173
-turn_retention       0.833     hard_cap_mps        26.000
-```
-
-Three real bugs found getting there: ground friction ran on the tick you left
-the floor and taxed every launch; the probe was measuring a collision with a
-building; and its crouch input was gated on `velocity.y < 0`, which
-`move_and_slide` zeroes on the landing tick — exactly the tick the slide starts.
-
-### Bots — `godot --path . -- bottest`
-
-| metric | before | after |
-|---|---|---|
-| worst idle | 97.3% | 30.1% |
-| avg engagement | 24.3% | 45.4% |
-| slide ticks | 0 | 155 |
-| out-of-bounds | 0 | 0 |
-
-The mid-air hang I diagnosed from a screenshot did not exist. The real defect
-was an unstick rule rolling a 25% jump chance *every tick*, so any blocked bot
-hopped 120×/second forever.
-
-## Critic round 1 — verdicts and what they caught
-
-All five ran read-only with fresh context against `reference/bar/`.
-
-**Bots — KRUNKER.** No health awareness anywhere: a bot at 15 HP pushed a
-shotgun exactly like one at 100. Also caught that three of seven bots had zero
-slide ticks, so my "intended slide-hop traversal" explanation of high air time
-was only true for the other four. Fixed: `Tuning.bot_retreat_health`, retreat
-branch, sniper stillness weighting.
-
-**Movement — KRUNKER.** Wall-jump is a class-defining Krunker mechanic and did
-not exist in any form. Also spotted that `slide_speed_cap = 19.5` saturated the
-chain by hop 3, making `hard_speed_cap = 26` unreachable. Fixed: wall-jump with
-charges reset on landing, cap raised to 23.5.
-
-**Map — KRUNKER.** Counted it: 25 prop boxes across 3,844 m², one per 154 m²,
-**none** indoors or on a roof, against 6–10 discrete props in every reference
-frame. Also found the three-storey guardhouse billed as "the only roof that sees
-the whole map" was unreachable — `_building` emitted floor slabs with no stairs
-between them. Fixed: prop vocabulary (containers, barrels, pallets, telegraph
-runs, awnings), interior stairwells, three cover heights, crenellated perimeter
-with towers at varied heights.
-
-**HUD — KRUNKER.** Pixel-measured the reticle: Krunker rests at a 36 px gap with
-10 px dashes at 576h (16% of screen height); ours was 14 px and 7 px, about a
-quarter of the footprint, and the speed readout sat inside the reticle. Fixed to
-the measured numbers.
-
-**Art — KRUNKER.** Sampled HSV directly: our field ran 43–58% saturation against
-Burg's 27–29%, with neutral-grey pixels at 0.4–3.4% versus the bar's 7–23%. It
-also **refuted my own assumption** — I worried the procedural textures looked
-noisy; it measured our high-frequency sigma at 7.8–16.2 against the bar's
-14.4–24.2 and showed we had *less* surface detail, not more. Applied its exact
-palette and environment values and raised texture contrast.
-
-## Evidence pipeline — a defect worth recording
-
-The bot critic noticed our five "live bot fight" screenshots were the same
-static corner of a room with HP frozen at 100/100 and no enemy on screen. Under
-the harness the player has no input, so every visual critic was judging the game
-from five pictures of a wall.
-
-First fix attempt put a shoulder cam on an engaged bot. That showed combat but
-paired it with the *local player's* HUD and viewmodel, so the frame lied: dead
-player, frozen ammo, a gun floating over someone else's fight.
-
-Real fix: `Player.enable_autopilot()` drives the actual player through the
-actual `Motor` and `Weapon` using `BotBrain`, so the first-person view fights
-for real and every overlay is honest. `shots/r12/game_2.png` now shows an enemy,
-damage numbers, impact debris, a killfeed line and ammo counting down.
-Separately, the viewmodel is a `CanvasLayer` composite and kept drawing over the
-map shots — `main.viewmodel_visible(false)` now hides it for those.
-
-## Known defects, ranked
-
-1. **Critic round 2 has not run.** Every fix since round 1 is self-verified only,
-   and weapon feedback, hit registration, viewmodel and match flow have never
-   faced a critic at all.
-2. Bots still do not use cover deliberately — they retreat on low health now, but
-   nothing routes them behind geometry to break line of sight.
-3. `bottest` still cannot separate purposeful slide-hop traversal from time spent
-   airborne for any other reason, so `air_pct` remains an untrustworthy number.
-4. The shotgun's 0.94 m first-shot deviation is by design (pellet cone), but the
-   probe reports it in the same column as the precision weapons, which invites a
-   misreading.
-
-## How to run
-
-```sh
-GODOT=/Applications/Godot_mono.app/Contents/MacOS/Godot
-$GODOT --headless --path . --import        # once; builds the class cache
-$GODOT --path .                            # play
-$GODOT --path . -- movetest                # movement metrics
-$GODOT --path . -- bottest                 # bot behaviour metrics
-tools/round.sh r13                         # parse + bench + all screenshots
-```
-
-Controls: WASD, Space jump (auto-bhop), Shift slide, wall-jump by jumping into a
-wall mid-air, LMB fire, RMB ADS, R reload, 1/2/3 weapons, Q cycle, V melee,
-Tab scoreboard, F5 restart, Esc pause.
-
-## Resume here
-
-1. Weapon feedback pass — `fx.gd` and `audio.gd` are untouched since round 0.
-2. Hit-registration silhouette hitboxes plus `scripts/hittest.gd`.
-3. Critic round 2 across all pieces, including viewmodel and match flow which
-   have never been judged.

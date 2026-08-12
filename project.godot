@@ -47,8 +47,10 @@ common/physics_jitter_fix=0.0
 
 [rendering]
 
-# Required for the universal/arm64 macOS export preset; without it
-# `--export-release` refuses to run.
+;  Required for the universal/arm64 macOS export preset; without it
+;  --export-release refuses to run. NOTE: project.godot comments must start
+;  with ';' - a '#' line is not a comment here and silently voided this key,
+;  so the setting read back as false while the file plainly said true.
 textures/vram_compression/import_etc2_astc=true
 
 anti_aliasing/quality/msaa_3d=2

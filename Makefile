@@ -89,10 +89,19 @@ import: ## build the class cache (runs itself on a fresh checkout)
 		printf 'first run: building Godot class cache...\n'; \
 		$(GODOT) --headless --path . --import >/dev/null 2>&1 || true; }
 
-check: import ## fail on any GDScript parse error
+check: import ## fail on any GDScript parse error, and on voided project settings
 	@err=$$($(GODOT) --headless --path . --quit 2>&1 \
 		| grep -E "SCRIPT ERROR|Parse Error|Failed to load script" || true); \
 	if [ -n "$$err" ]; then printf '%s\n' "$$err"; printf '\nPARSE FAILED\n'; exit 1; fi
+	@bad=$$(grep -n '^[[:space:]]*#' project.godot || true); \
+	if [ -n "$$bad" ]; then \
+		printf '%s\n' "$$bad"; \
+		printf '\nproject.godot comments MUST start with ";".\n'; \
+		printf 'A "#" line is not a comment there: it silently voids the key\n'; \
+		printf 'below it. That is how import_etc2_astc read back false while\n'; \
+		printf 'the file said true, and make release refused to export.\n'; \
+		exit 1; \
+	fi
 	@printf 'parse clean\n'
 
 ## ---------------------------------------------------------------- evidence

@@ -193,3 +193,13 @@ cap with resolution:
 
 60+ at 1440p with 770 map boxes, ~200 draw calls and eight actors fighting is
 the honest claim.
+
+## project.godot comments must start with ";"
+
+A `#` line is NOT a comment in `project.godot` — it silently voids the key
+below it. Two `#` lines above `textures/vram_compression/import_etc2_astc=true`
+made the engine read that setting back as `false` while the file plainly said
+`true`, and `make release` refused to export with "Cannot export for universal
+or arm64 if ETC2 ASTC texture format is disabled".
+
+`make check` now fails on any `#` comment in that file.

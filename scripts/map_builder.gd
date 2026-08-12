@@ -121,7 +121,13 @@ func validate_reachability() -> void:
 	# twice — once buried in a tower, once sealed in a pocket — so replacements
 	# are chosen from the navmesh itself: on the main component, reachable, and
 	# as far from the spawns we already have as possible.
-	for _r in bad:
+	# Top the pool back up to the authored count, not just to however many
+	# survived. _usable_spawns() DROPS spawns buried in geometry while this
+	# pass RELOCATES unreachable ones, and that inconsistency quietly shrank
+	# the lobby: adding the market district buried three spawns and the count
+	# went 12 -> 9 with nothing failing. Both failure modes are repairable.
+	var target: int = MapData.spawns().size()
+	for _r in maxi(bad, target - good.size()):
 		var best := Vector3.INF
 		var best_score: float = -1.0
 		for gx in 30:
@@ -145,7 +151,8 @@ func validate_reachability() -> void:
 		good.append(best)
 	spawn_points = good
 	print("REACHCHECK ", JSON.stringify({
-		"kept": spawn_points.size(), "relocated": bad, "frames_waited": waited,
+		"kept": spawn_points.size(), "authored": target, "relocated": bad,
+		"frames_waited": waited,
 		"min_separation_m": snappedf(_min_separation(spawn_points), 0.1)}))
 
 func _reach_counts(points: Array, map: RID) -> Array[int]:

@@ -61,7 +61,10 @@ var rest_rot := Vector3(0.045, 0.150, -0.235)     # the cant
 ## kept at ~40% while aimed; ads_pos below then solves for the ROTATED sight
 ## position, so alignment survives the tilt instead of being bought by
 ## flattening the gun into a vertical pillar.
-var ads_rot := Vector3(0.018, 0.060, -0.095)
+## ~68% of the rest cant. At 40% the maths said "canted" and the frame still
+## read dead-vertical, because the two arms sat near-symmetric about the
+## centreline at that scale and the eye takes symmetry as upright.
+var ads_rot := Vector3(0.026, 0.085, -0.160)
 
 var kick: float = 0.0
 var kick_rot: float = 0.0
@@ -203,7 +206,10 @@ func build_for(key: String) -> void:
 				Vector3(-0.28, 0, 0))
 			_box(_model, Vector3(0.055, 0.085, 0.28), Vector3(0, 0.004, 0.32), grip_c)  # stock
 			_box(_model, Vector3(0.030, 0.062, 0.13), Vector3(0, 0.075, -0.32), dark)   # sight block
-			_box(_model, Vector3(0.016, 0.042, 0.016), Vector3(0, 0.118, -0.52), brass) # front post
+			# Stubby post on a wider base: a bare 0.016 column read as an
+			# antenna once ADS magnified it.
+			_box(_model, Vector3(0.030, 0.016, 0.026), Vector3(0, 0.098, -0.52), dark)
+			_box(_model, Vector3(0.022, 0.030, 0.020), Vector3(0, 0.112, -0.52), brass)
 			sight_local = Vector3(0, 0.118, -0.45)
 			_box(_model, Vector3(0.082, 0.030, 0.24), Vector3(0, -0.058, -0.42), grip_c)
 			_hands(Vector3(0, -0.135, 0.20), Vector3(0, -0.058, -0.40))
@@ -348,10 +354,14 @@ func update_view(delta: float, speed_ratio: float, grounded: bool, ads_amount: f
 	# sat right under the sight during ADS and read as one featureless brown
 	# wedge; real aim-down-sights animations take the forearms out of frame.
 	if _arms and _arms_trigger:
-		_arms_trigger.position = Vector3(0.0, -_ads_arm_drop * ads_amount,
-			0.18 * ads_amount)
-		# The support hand only eases back a little, so the gun is still held.
-		_arms.position = Vector3(0.0, -0.05 * ads_amount, 0.05 * ads_amount)
+		# Break the left-right symmetry as well as dropping: two mirrored arms
+		# under the receiver read as a centred pillar however much the gun is
+		# actually canted. The trigger arm goes down and OUT to the right, the
+		# support hand tucks slightly left and forward.
+		_arms_trigger.position = Vector3(0.055 * ads_amount,
+			-_ads_arm_drop * ads_amount, 0.18 * ads_amount)
+		_arms.position = Vector3(-0.030 * ads_amount, -0.05 * ads_amount,
+			0.05 * ads_amount)
 
 	# reload dips the gun out of frame and rolls it, then brings it back
 	var dip: float = sin(clampf(reload_t, 0.0, 1.0) * PI)
