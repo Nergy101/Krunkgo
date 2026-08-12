@@ -218,8 +218,16 @@ func _jump() -> void:
 			body.velocity.z = v.z
 
 func _update_stance(want_crouch: bool, delta: float) -> void:
+	# Krunker added backward sliding in v2.8.1 and removed it again in v2.8.4
+	# (reference/krunker-movement.md section 3), so a slide has to be going
+	# roughly where you are facing. Without this you could slide away from a
+	# fight at full chain speed while still shooting back down your own path.
+	var fwd: Vector3 = -body.global_transform.basis.z
+	var vel_flat := Vector3(body.velocity.x, 0.0, body.velocity.z)
+	var forward_enough: bool = vel_flat.length() < 0.01 \
+		or fwd.normalized().dot(vel_flat.normalized()) > -0.2
 	if want_crouch and grounded and not sliding and slide_cd <= 0.0 \
-			and speed_flat >= Tuning.slide_min_speed:
+			and speed_flat >= Tuning.slide_min_speed and forward_enough:
 		_start_slide()
 	if sliding:
 		slide_time += delta

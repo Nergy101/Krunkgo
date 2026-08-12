@@ -22,12 +22,32 @@ var sight_local := Vector3(0.0, 0.10, 0.0)
 ## Arms live under their own node so ADS can slide them out of frame. Held at
 ## the rest offset they became a featureless brown wedge under the sight the
 ## moment the gun came up to the camera axis.
-var _arms: Node3D
+var _arms: Node3D          # support arm: stays on the gun under ADS
+var _arms_trigger: Node3D  # trigger arm: leaves the frame under ADS
 ## How far forward the gun sits when aimed. Pushed out from -0.56: at that
 ## depth the camera sat right behind the stock, so aiming filled the bottom
 ## third of the screen with one featureless slab of receiver and butt. Moving
 ## along z keeps the sight on the camera axis, so alignment is unaffected.
+## How far forward each gun sits when aimed. This was ONE global constant, and
+## it was tuned until the assault rifle's stock cleared the frame — every other
+## weapon still filled the lower third with a featureless slab, because a
+## sniper's stock is 0.36 long and a pistol's barely exists. Moving along z
+## keeps the sight on the camera axis, so alignment is unaffected either way.
 const ADS_DEPTH := -0.86
+## More negative is FURTHER from the lens. The first per-weapon pass had this
+## backwards for the short guns and pushed the pistol to -0.52, which made it
+## cover MORE of the frame than the single global value it replaced.
+const ADS_DEPTH_BY_KEY := {
+	"assault": -0.86, "sniper": -1.10, "shotgun": -1.02, "smg": -0.94, "pistol": -0.98,
+}
+## Only the TRIGGER arm leaves the frame when aiming. Dropping both meant ADS
+## showed a gun held by nobody, which is the other half of what the critic was
+## looking at: the support hand sits forward on the handguard, near the sight
+## line, and stays visible in real aim-down-sights views.
+const ADS_ARM_DROP := {
+	"assault": 0.34, "sniper": 0.30, "shotgun": 0.32, "smg": 0.36, "pistol": 0.40,
+}
+var _ads_arm_drop: float = 0.34
 var ads_pos := Vector3(0.0, -0.10, ADS_DEPTH)
 var rest_rot := Vector3(0.045, 0.150, -0.235)     # the cant
 var ads_rot := Vector3(0.0, 0.0, 0.0)
@@ -137,6 +157,8 @@ func build_for(key: String) -> void:
 	add_child(_model)
 	_arms = Node3D.new()
 	_model.add_child(_arms)
+	_arms_trigger = Node3D.new()
+	_model.add_child(_arms_trigger)
 	# Scaled up hard versus the first pass. In the reference shot the gun eats
 	# roughly the lower-right third of the screen; ours was a distant twig.
 	var gun := Color8(58, 61, 68)
@@ -217,7 +239,9 @@ func build_for(key: String) -> void:
 	# Put the sight on the camera axis when aimed. Previously ads_pos was a
 	# hand-picked constant, so the sight picture sat well above the crosshair
 	# and the two disagreed about where the bullet was going.
-	ads_pos = Vector3(-sight_local.x, -sight_local.y, ADS_DEPTH)
+	var depth: float = float(ADS_DEPTH_BY_KEY.get(key, ADS_DEPTH))
+	_ads_arm_drop = float(ADS_ARM_DROP.get(key, 0.30))
+	ads_pos = Vector3(-sight_local.x, -sight_local.y, depth)
 ## Hands on the weapon. Every reference viewmodel shows forearms holding the
 ## gun; ours floated in the SubViewport with nothing gripping it, which is the
 ## loudest "not Krunker" tell left once the gun itself reads as a gun.
@@ -293,8 +317,11 @@ func update_view(delta: float, speed_ratio: float, grounded: bool, ads_amount: f
 	# Slide the arms down and back as the gun comes up. At the rest offset they
 	# sat right under the sight during ADS and read as one featureless brown
 	# wedge; real aim-down-sights animations take the forearms out of frame.
-	if _arms:
-		_arms.position = Vector3(0.0, -0.30 * ads_amount, 0.16 * ads_amount)
+	if _arms and _arms_trigger:
+		_arms_trigger.position = Vector3(0.0, -_ads_arm_drop * ads_amount,
+			0.18 * ads_amount)
+		# The support hand only eases back a little, so the gun is still held.
+		_arms.position = Vector3(0.0, -0.05 * ads_amount, 0.05 * ads_amount)
 
 	# reload dips the gun out of frame and rolls it, then brings it back
 	var dip: float = sin(clampf(reload_t, 0.0, 1.0) * PI)

@@ -129,15 +129,15 @@ static func _mid(b: Array) -> void:
 
 static func _a_site(b: Array) -> void:
 	# tall guardhouse: three storeys, the only roof that sees the whole map
-	_building(b, Vector3(14, 0, -14), Vector3(11, 9, 10), "wall_a", "roof", 3, "x-")
+	_building(b, Vector3(14, 0, -14), Vector3(11, 9, 10), "wall_a", "roof", 3, "x-", "flat")
 	_stairs(b, Vector3(11, 0, -6), Vector3(0, 0, -1), 5, 3.0, "wood")
 	# courtyard wall with a gap, so A is enterable from two sides
 	_wall_run(b, Vector3(12, 0, -2), Vector3(0, 0, 1), 14, 4.0, 1.0, "wall_b", [], 0)
-	_building(b, Vector3(18, 0, 4), Vector3(9, 6, 9), "wall_b", "roof_alt", 2, "x-")
+	_building(b, Vector3(18, 0, 4), Vector3(9, 6, 9), "wall_b", "roof_alt", 2, "x-", "shed")
 
 static func _b_site(b: Array) -> void:
 	# warehouse: wide, low, two entrances, fightable interior
-	_building(b, Vector3(-26, 0, 8), Vector3(16, 7, 14), "wall_b", "roof_alt", 2, "x+")
+	_building(b, Vector3(-26, 0, 8), Vector3(16, 7, 14), "wall_b", "roof_alt", 2, "x+", "shed")
 	# The north face already carries a doorway from _building; two extra boxes
 	# here only duplicated wall that was already there.
 	_stairs(b, Vector3(-9, 0, 12), Vector3(-1, 0, 0), 3, 4.0, "wood")
@@ -149,19 +149,14 @@ static func _west_terrace(b: Array) -> void:
 	# Three copies of one house is a row of clones. Vary depth, height, roof and
 	# which side the door faces so each reads as its own dwelling.
 	const HOUSES := [
-		[-14.0, Vector3(8, 6, 6), "wall_a", "roof", "x+"],
-		[-6.0, Vector3(9, 7, 6), "wall_b", "roof_alt", "z+"],
-		[2.0, Vector3(7, 5, 6), "wall_a", "roof", "x+"],
+		[-14.0, Vector3(8, 6, 6), "wall_a", "roof", "x+", "pitch"],
+		[-6.0, Vector3(9, 7, 6), "wall_b", "roof_alt", "z+", "flat"],
+		[2.0, Vector3(7, 5, 6), "wall_a", "roof", "x+", "shed"],
 	]
 	for h in HOUSES:
-		_building(b, Vector3(-27, 0, float(h[0])), h[1], String(h[2]), String(h[3]), 2, String(h[4]))
+		_building(b, Vector3(-27, 0, float(h[0])), h[1], String(h[2]), String(h[3]), 2, String(h[4]), String(h[5]))
 	# All three took the same stepped pyramid, so the rooflines were identical
-	# even though the ground plans were not. Give the middle house a flat roof
-	# with a parapet you can actually stand behind.
-	var mid_p := Vector3(-27, 7, -6)
-	var mid_s := Vector3(9, 6, 6)
-	_box(b, mid_p, Vector3(mid_s.x, 0.4, mid_s.z), "roof_alt")
-	_ring(b, mid_p + Vector3(0, 0.4, 0), Vector3(mid_s.x, 1.1, mid_s.z), "wall_b", 0.4)
+	# even though the ground plans were not. The table now picks a style each.
 
 static func _tunnel(b: Array) -> void:
 	# covered flank: walls, roof, open at both ends
@@ -207,7 +202,7 @@ static func _awning(b: Array, p: Vector3, s: Vector3) -> void:
 static func _market(b: Array) -> void:
 	# Two-storey shop, door facing the courtyard, with an outside stair onto a
 	# roof that overlooks both the south wall and A-site's approach.
-	_building(b, Vector3(17, 0, 17), Vector3(10, 7, 11), "wall_a", "roof_alt", 2, "z-")
+	_building(b, Vector3(17, 0, 17), Vector3(10, 7, 11), "wall_a", "roof_alt", 2, "z-", "flat")
 	_stairs(b, Vector3(28, 0, 18), Vector3(0, 0, 1), 7, 3.0, "wood")
 	# Stall row: four awnings on posts with goods stacked under them. This is
 	# the head-height cover band the corner had none of.
@@ -330,7 +325,7 @@ static func _clutter(b: Array) -> void:
 	# A-site, so it was crossing ground between two fights rather than either.
 	# A guard post with a stair to its roof gives the A-site approach something
 	# to contest and gives LONG an east-end angle that is not just open wall.
-	_building(b, Vector3(21, 0, -31), Vector3(8, 5, 7), "wall_b", "roof", 1, "z+")
+	_building(b, Vector3(21, 0, -31), Vector3(8, 5, 7), "wall_b", "roof", 1, "z+", "shed")
 	_stairs(b, Vector3(19, 0, -30), Vector3(1, 0, 0), 5, 2.5, "wood")
 	_container(b, Vector3(17, 0, -28), true, "metal")
 	_awning(b, Vector3(22, 3.4, -23), Vector3(3.0, 0.4, 2.5))
@@ -430,7 +425,7 @@ static func _wall_run(b: Array, origin: Vector3, dir: Vector3, length: float,
 ## Four walls with a doorway on `door_side`, a floor slab per storey, and a
 ## stepped pitched roof. Interiors are hollow and fightable.
 static func _building(b: Array, p: Vector3, s: Vector3, wall: String, roof: String,
-		floors: int, door_side: String) -> void:
+		floors: int, door_side: String, roof_style: String = "pitch") -> void:
 	var wins: Array = [1]   # one opening per WINDOW_PERIOD columns
 	# long faces (x)
 	_face(b, p, s, "z-", wall, wins, door_side)
@@ -457,7 +452,15 @@ static func _building(b: Array, p: Vector3, s: Vector3, wall: String, roof: Stri
 		# Landing one step short leaves a lip you can still walk up.
 		_stairs(b, Vector3(p.x + 1, y - storey, p.z + 1), Vector3(0, 0, 1),
 			maxi(1, int(floor(storey))), well, "wood")
-	_pitched_roof(b, Vector3(p.x, p.y + s.y, p.z), Vector3(s.x, 1, s.z), roof)
+	var rp := Vector3(p.x, p.y + s.y, p.z)
+	var rs := Vector3(s.x, 1, s.z)
+	match roof_style:
+		"flat":
+			_flat_roof(b, rp, rs, roof)
+		"shed":
+			_shed_roof(b, rp, rs, roof)
+		_:
+			_pitched_roof(b, rp, rs, roof)
 
 static func _face(b: Array, p: Vector3, s: Vector3, side: String, key: String,
 		wins: Array, door_side: String) -> void:
@@ -498,6 +501,22 @@ static func _face(b: Array, p: Vector3, s: Vector3, side: String, key: String,
 
 ## Stepped pyramid roof. Flat roofs everywhere were a big part of why the first
 ## arena read as placeholder.
+## Flat roof with a parapet you can stand behind. One of three roof styles:
+## the map had exactly ONE roof generator and one building generator driving
+## every structure, so the whole skyline was a single kit at four sizes.
+static func _flat_roof(b: Array, p: Vector3, s: Vector3, key: String) -> void:
+	_box(b, p, Vector3(s.x, 0.4, s.z), key)
+	_ring(b, Vector3(p.x, p.y + 0.4, p.z), Vector3(s.x, 1.1, s.z), "wall_b", 0.4)
+
+## Single-slope shed roof: steps up along x only, so it reads as a lean-to
+## rather than a pyramid and gives the silhouette an asymmetric edge.
+static func _shed_roof(b: Array, p: Vector3, s: Vector3, key: String) -> void:
+	var steps: int = maxi(2, int(s.x / 2.0))
+	var run: float = s.x / float(steps)
+	for i in steps:
+		_box(b, Vector3(p.x + run * float(i), p.y + float(i) * 0.6, p.z),
+			Vector3(run, 0.6 + float(i) * 0.6, s.z), key)
+
 static func _pitched_roof(b: Array, p: Vector3, s: Vector3, key: String) -> void:
 	var steps: int = int(minf(s.x, s.z) / 2.0)
 	for i in steps:

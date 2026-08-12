@@ -24,7 +24,9 @@ const RANGE_BY_WEAPON := {
 func _ready() -> void:
 	super._ready()
 	brain.bot = self
-	brain.skill = Game.rng.randf_range(0.7, 1.25)
+	# bot_brain.gd documents 0.6 (fodder) .. 1.3 (sweaty); the roll here was
+	# 0.7..1.25, so the lobby was more uniform than the design claimed.
+	brain.skill = Game.rng.randf_range(0.6, 1.3)
 	brain.burst_left = Game.rng.randi_range(4, 9)
 
 	agent = NavigationAgent3D.new()

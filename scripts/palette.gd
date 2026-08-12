@@ -102,7 +102,10 @@ static func _value(x: int, y: int, kind: int, rng: RandomNumberGenerator) -> flo
 			var row: int = y / 8
 			var off: int = 0 if row % 2 == 0 else 8
 			var joint: bool = (y % 8 == 0) or ((x + off) % 16 == 0)
-			return -2.2 if joint else 0.25 * n + (0.12 if row % 2 == 0 else -0.06)
+			# Joint was -2.2, which baked near-black mortar and turned every
+			# wall into a hard graphic lattice. The bar reads as flat colour
+			# with light noise, so the coursing should be legible, not drawn.
+			return -1.15 if joint else 0.25 * n + (0.12 if row % 2 == 0 else -0.06)
 		Surf.BLOCK:
 			# big ashlar blocks, 2 per unit
 			var j: bool = (y % 16 == 0) or (x % 16 == 0)
