@@ -7,7 +7,7 @@ extends Node
 ## Prints one JSON line prefixed MOVETEST so a critic can check our movement
 ## envelope against the claims in reference/krunker-movement.md.
 
-enum Phase { WALK, HOP, STRAFE, TURN, WALL, STAIRS, DONE }
+enum Phase { WALK, HOP, STRAFE, TURN, WALL, STAIRS, EARLY, LATE, DONE }
 
 var player: Player
 var phase: int = Phase.WALK
@@ -34,6 +34,15 @@ var stair_start_y: float = 0.0
 var stair_climbed: float = 0.0
 var stair_jumps: int = 0
 var ground_y: float = 0.0
+# slide_late_penalty had real code and no evidence it ever fired: every hop in
+# the HOP phase lands and re-jumps on the same tick, so since_landing is always
+# 0 there and the penalty branch is unreachable. These two phases jump out of a
+# slide on purpose, once inside the re-jump window and once well outside it,
+# and measure the speed ratio across the jump tick itself.
+var early_ratio: float = -1.0
+var late_ratio: float = -1.0
+var early_since: float = -1.0
+var late_since: float = -1.0
 
 func _ready() -> void:
 	name = "MoveTest"
@@ -172,7 +181,43 @@ func _physics_process(delta: float) -> void:
 				stair_jumps += 1
 			stair_climbed = maxf(stair_climbed, player.global_position.y - stair_start_y)
 			if t >= 4.0:
+				_reset(Phase.EARLY)
+
+		Phase.EARLY:
+			# Chain hops: each one lands and launches in the same tick, so
+			# since_landing is ~0 and no penalty should apply.
+			var warm: bool = t < 1.0
+			_timed_step(m, fwd, not warm, not warm, delta)
+			if t >= 3.0:
+				_reset(Phase.LATE)
+
+		Phase.LATE:
+			# Run along the ground first. since_landing counts up the whole
+			# time we stay grounded, so sliding out of a long ground run is
+			# exactly the mistimed case the penalty is meant to punish.
+			var late_jump: bool = t >= 1.4
+			_timed_step(m, fwd, late_jump, late_jump, delta)
+			if t >= 2.2:
 				_finish()
+
+## Step the motor while recording what the jump did to horizontal speed.
+func _timed_step(m: Motor, dir: Vector3, jump: bool, crouch: bool, delta: float) -> void:
+	var before: float = m.speed_flat
+	m.step(dir, jump, crouch, delta)
+	# Sampling m.sliding around the call caught nothing: the slide both starts
+	# and ends inside step(), so it is false before and false after.
+	if not m.slide_jumped_this_tick:
+		return
+	var ratio: float = m.speed_flat / maxf(0.001, before)
+	# Read since_landing from where the branch actually evaluated it. Sampling
+	# it before step() reported 1.467 s for a jump the motor correctly treated
+	# as on-time, because the landing that zeroed it happened inside the step.
+	if m.slide_jump_was_late:
+		late_ratio = ratio
+		late_since = m.slide_jump_since_landing
+	elif early_ratio < 0.0:
+		early_ratio = ratio
+		early_since = m.slide_jump_since_landing
 
 func _reset(next: int) -> void:
 	phase = next
@@ -222,6 +267,11 @@ func _finish() -> void:
 		"stairs_climbed_m_no_jump": stair_climbed,
 		"stairs_jumps_used": stair_jumps,
 		"stairs_available_m": 3.0,   # four risers, top sits 3 m above the slab
+		"slide_late_penalty_setting": Tuning.slide_late_penalty,
+		"rejump_early_ratio": snappedf(early_ratio, 0.001),
+		"rejump_early_since_landing_s": snappedf(early_since, 0.001),
+		"rejump_late_ratio": snappedf(late_ratio, 0.001),
+		"rejump_late_since_landing_s": snappedf(late_since, 0.001),
 	}
 	print("MOVETEST ", JSON.stringify(results))
 	get_tree().quit(0)

@@ -35,6 +35,12 @@ var slid_this_tick: bool = false
 var speed_flat: float = 0.0
 var wall_charges: int = 0
 var wall_jumped_this_tick: bool = false
+## Whether this tick's jump launched out of a slide, and whether it missed the
+## re-jump window. Only the motor knows: the slide can start and end inside a
+## single step(), so a caller sampling `sliding` before or after sees neither.
+var slide_jumped_this_tick: bool = false
+var slide_jump_was_late: bool = false
+var slide_jump_since_landing: float = 0.0
 ## Seconds since we last touched the floor. Krunker's slide re-jump window is
 ## documented at roughly a quarter second; this is what enforces it explicitly
 ## rather than leaning on the generic coyote/buffer timers.
@@ -52,6 +58,8 @@ func step(wish_dir: Vector3, want_jump: bool, want_crouch: bool, delta: float) -
 	jumped_this_tick = false
 	slid_this_tick = false
 	wall_jumped_this_tick = false
+	slide_jumped_this_tick = false
+	slide_jump_was_late = false
 	was_grounded = grounded
 	grounded = body.is_on_floor()
 
@@ -200,6 +208,9 @@ func _jump() -> void:
 	if sliding:
 		sliding = false
 		slide_cd = Tuning.slide_cooldown
+		slide_jumped_this_tick = true
+		slide_jump_was_late = since_landing > Tuning.slide_rejump_window
+		slide_jump_since_landing = since_landing
 		if since_landing > Tuning.slide_rejump_window:
 			var v := Vector3(body.velocity.x, 0.0, body.velocity.z)
 			v *= Tuning.slide_late_penalty

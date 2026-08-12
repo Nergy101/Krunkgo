@@ -347,8 +347,27 @@ func _validate(boxes: Array, nudged: int = 0) -> void:
 		var o: Dictionary = overlaps[k]
 		print("ZFIGHT %.2f m2  %s %s%s  vs  %s %s%s" % [o["v"], o["ca"], o["pa"], o["sa"],
 			o["cb"], o["pb"], o["sb"]])
+	# A critic measured "roughly the whole SE quadrant has nothing in it but
+	# scattered crates" by eye. Nothing in the build could see that, so an
+	# empty region could be reintroduced by any layout edit without a warning.
+	# Report playable-height cover per 16x16 m cell instead.
+	var cell := {}
+	for b in boxes:
+		var p: Vector3 = b["p"]
+		var s: Vector3 = b["s"]
+		if p.y > 6.0 or s.y < 0.6:
+			continue                     # roofs and floor slabs are not cover
+		var key := "%d,%d" % [floori((p.x + 32.0) / 16.0), floori((p.z + 32.0) / 16.0)]
+		cell[key] = int(cell.get(key, 0)) + 1
+	var counts: Array = []
+	for gz in 4:
+		var row: Array = []
+		for gx in 4:
+			row.append(int(cell.get("%d,%d" % [gx, gz], 0)))
+		counts.append(row)
 	print("MAPCHECK ", JSON.stringify({"boxes": boxes.size(), "degenerate": bad,
-		"coplanar_face_pairs": overlaps.size(), "nudged": nudged}))
+		"coplanar_face_pairs": overlaps.size(), "nudged": nudged,
+		"cover_per_16m_cell": counts}))
 
 ## Area of any face plane the two boxes SHARE. Coincident faces at the same
 ## depth are what the depth buffer flickers between; a prop merely buried

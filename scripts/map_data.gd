@@ -14,6 +14,11 @@ extends RefCounted
 ##   B-SITE    south-west warehouse, two entrances, tight interior.
 ##   TUNNEL    covered passage from the south wall to under MID. Flank route
 ##             that lets you leave LONG without crossing open ground.
+##   MARKET    south-east corner. A stall row under awnings and a two-storey
+##             shop with an outside stair to its roof. Added because a cover
+##             audit of the finished box list found this 16x16 cell held ONE
+##             piece of playable-height cover against 69 in the west: it was
+##             flat sand you crossed on the way somewhere else.
 ##   ALLEYS    3-wide gaps between the west terrace houses. Shotgun country.
 ##
 ## A box is {"p": min corner, "s": size, "c": palette key}.
@@ -38,6 +43,7 @@ static func boxes() -> Array:
 	_b_site(b)
 	_west_terrace(b)
 	_tunnel(b)
+	_market(b)
 	_clutter(b)
 	return b
 
@@ -74,11 +80,16 @@ static func _perimeter_detail(b: Array) -> void:
 	# Footprint AND depth vary, not just height. Six identical 4x4 stubs at one
 	# depth gave the wall a flat, repeated silhouette from every angle; Burg's
 	# towers overlap and step in and out.
+	# Position, extra height, footprint. Every tower used to sit flush on the
+	# ring line, so the wall read as one plane with bumps; Burg's step forward
+	# and back. The corner four stay flush because a corner tower that pulls
+	# inward leaves a visible notch in the wall behind it.
 	const TOWERS := [
 		[Vector3(-31, 0, -31), 4.0, 5.0], [Vector3(26, 0, -31), 2.0, 5.0],
 		[Vector3(-31, 0, 26), 2.5, 5.0], [Vector3(27, 0, 27), 4.5, 4.0],
-		[Vector3(-4, 0, -31), 3.0, 6.0], [Vector3(-31, 0, -4), 1.5, 3.0],
-		[Vector3(12, 0, -31), 0.8, 3.0], [Vector3(-31, 0, 12), 2.2, 4.0],
+		[Vector3(-4, 0, -29.5), 3.0, 6.0], [Vector3(-29.5, 0, -4), 1.5, 3.0],
+		[Vector3(12, 0, -30.6), 0.8, 3.0], [Vector3(-30.6, 0, 12), 2.2, 4.0],
+		[Vector3(29.4, 0, -12), 3.4, 2.6], [Vector3(-8, 0, 29.4), 1.8, 2.6],
 	]
 	for t in TOWERS:
 		var tp: Vector3 = t[0]
@@ -144,6 +155,13 @@ static func _west_terrace(b: Array) -> void:
 	]
 	for h in HOUSES:
 		_building(b, Vector3(-27, 0, float(h[0])), h[1], String(h[2]), String(h[3]), 2, String(h[4]))
+	# All three took the same stepped pyramid, so the rooflines were identical
+	# even though the ground plans were not. Give the middle house a flat roof
+	# with a parapet you can actually stand behind.
+	var mid_p := Vector3(-27, 7, -6)
+	var mid_s := Vector3(9, 6, 6)
+	_box(b, mid_p, Vector3(mid_s.x, 0.4, mid_s.z), "roof_alt")
+	_ring(b, mid_p + Vector3(0, 0.4, 0), Vector3(mid_s.x, 1.1, mid_s.z), "wall_b", 0.4)
 
 static func _tunnel(b: Array) -> void:
 	# covered flank: walls, roof, open at both ends
@@ -186,6 +204,26 @@ static func _awning(b: Array, p: Vector3, s: Vector3) -> void:
 	_box(b, p, s, "accent")
 	_box(b, p + Vector3(0, -0.9, 0), Vector3(0.2, 0.9, 0.2), "wood")
 
+static func _market(b: Array) -> void:
+	# Two-storey shop, door facing the courtyard, with an outside stair onto a
+	# roof that overlooks both the south wall and A-site's approach.
+	_building(b, Vector3(17, 0, 17), Vector3(10, 7, 11), "wall_a", "roof_alt", 2, "z-")
+	_stairs(b, Vector3(28, 0, 18), Vector3(0, 0, 1), 7, 3.0, "wood")
+	# Stall row: four awnings on posts with goods stacked under them. This is
+	# the head-height cover band the corner had none of.
+	for i in 4:
+		var x: float = 17.0 + float(i) * 3.5
+		_awning(b, Vector3(x, 3.2, 29.0), Vector3(3.0, 0.4, 2.5))
+		_pallet(b, Vector3(x, 0, 29.5), i % 2 == 0)
+	# A low wall splits the corner so it is a fight, not a field.
+	_wall_run(b, Vector3(16, 0, 24), Vector3(1, 0, 0), 12, 2.5, 1.0, "wall_b", [1], 5)
+	_container(b, Vector3(20, 0, 21), true, "accent")
+	_container(b, Vector3(28, 0, 25), false, "metal")
+	for q in [Vector3(19, 0, 27), Vector3(26, 0, 20), Vector3(30, 0, 30)]:
+		_barrel(b, q)
+	_box(b, Vector3(24, 0, 30), Vector3(2, 2, 2), "crate")
+	_wire_run(b, Vector3(16, 0, 30), Vector3(30, 0, 30))
+
 static func _clutter(b: Array) -> void:
 	# --- B-SITE warehouse interior: containers and pallets worth entering for
 	_container(b, Vector3(-21, 0, 10), true, "metal")   # clear of the stairwell
@@ -196,6 +234,19 @@ static func _clutter(b: Array) -> void:
 		_pallet(b, p, true)
 	for p in [Vector3(-15, 0, 16), Vector3(-21, 0, 9), Vector3(-12, 0, 15)]:
 		_barrel(b, p)
+	# A critic called this interior "a bare gray corridor - two blank storage
+	# container walls and a red door", and it was: the only things in it were
+	# containers seen end-on. Add a mezzanine you can hold, the stair up to it,
+	# and shelving along the blank west wall so the space has depth.
+	_box(b, Vector3(-25, 3.5, 9), Vector3(6, 0.4, 5), "wood")          # mezzanine deck
+	_ring(b, Vector3(-25, 3.9, 9), Vector3(6, 1.0, 5), "metal", 0.25)  # its railing
+	_stairs(b, Vector3(-19, 0, 9), Vector3(-1, 0, 0), 4, 2.5, "metal") # up to it
+	for sy in [0.0, 1.6, 3.2]:
+		_box(b, Vector3(-25.6, sy, 15), Vector3(1.4, 0.3, 7), "wood")  # shelf boards
+	_box(b, Vector3(-25.6, 0, 15), Vector3(0.35, 3.5, 0.35), "metal")  # uprights
+	_box(b, Vector3(-25.6, 0, 21.6), Vector3(0.35, 3.5, 0.35), "metal")
+	for q in [Vector3(-24, 1.9, 16), Vector3(-24, 3.5, 19), Vector3(-24, 0.3, 20)]:
+		_box(b, q, Vector3(1.2, 1.2, 1.2), "crate")                    # stock on the shelves
 
 	# --- LONG lane: staggered hard cover at three distinct heights so peeking,
 	# vaulting and hard-blocking are all different decisions
@@ -248,6 +299,32 @@ static func _clutter(b: Array) -> void:
 	_wire_run(b, Vector3(10, 0, -14), Vector3(10, 0, 6))
 	_wire_run(b, Vector3(-28, 0, 4), Vector3(-10, 0, 4))
 
+	# --- levelling the thin cells. The occupancy grid in MapBuilder._validate
+	# reports playable-height cover per 16 m cell; after MARKET landed, three
+	# cells still sat at 5, 7 and 8 against a map average near 25, and all
+	# three are ground you cross rather than fight over.
+	# South-centre, between the tunnel mouth and the market.
+	_container(b, Vector3(6, 0, 24), true, "metal")
+	_awning(b, Vector3(2, 3.2, 27), Vector3(3.0, 0.4, 2.5))
+	for q in [Vector3(1, 0, 22), Vector3(11, 0, 28), Vector3(6, 0, 30)]:
+		_barrel(b, q)
+	for q in [Vector3(9, 0, 19), Vector3(3, 0, 29)]:
+		_pallet(b, q, true)
+	_box(b, Vector3(13, 0, 26), Vector3(2, 2.4, 2), "crate")
+	_wire_run(b, Vector3(2, 0, 18), Vector3(2, 0, 30))
+	# East end of LONG: the sniper lane had cover along its length but ran out
+	# before the east wall, so the last 16 m was a free kill.
+	_container(b, Vector3(24, 0, -19), false, "accent")
+	_box(b, Vector3(28, 0, -24), Vector3(2, 2.4, 2), "crate")
+	_pallet(b, Vector3(27, 0, -20), true)
+	for q in [Vector3(22, 0, -26), Vector3(30, 0, -21)]:
+		_barrel(b, q)
+	# Centre-east, the approach from MID to A-site.
+	_container(b, Vector3(8, 0, 6), true, "metal")
+	_pallet(b, Vector3(13, 0, 3), false)
+	_barrel(b, Vector3(6, 0, 12))
+	_box(b, Vector3(2, 0, 10), Vector3(2, 1.6, 2), "crate")
+
 	# --- awnings off the terrace houses
 	for i in 3:
 		_awning(b, Vector3(-19, 4, -13.0 + i * 9.0), Vector3(2.5, 0.4, 4))
@@ -268,7 +345,10 @@ static func spawns() -> Array:
 ## solid boxes and produced five shots of the inside of a wall.
 static func review_cameras() -> Array:
 	return [
-		{"name": "overview", "pos": Vector3(40, 34, 40), "look": Vector3(0, 3, 0)},
+		# Pulled in from (40,34,40). The arena occupied a fraction of the frame
+		# while the reference render fills it, which made a density comparison
+		# against Burg unfair to us in a way the map itself was not.
+		{"name": "overview", "pos": Vector3(20, 17, 20), "look": Vector3(-2, 2, -2)},
 		{"name": "long", "pos": Vector3(-18.5, 2.2, -21.5), "look": Vector3(28, 3.0, -21.0)},
 		{"name": "mid", "pos": Vector3(-15, 2.2, 6), "look": Vector3(2, 5, -4)},
 		{"name": "interior", "pos": Vector3(-12.5, 1.7, 11), "look": Vector3(-25, 1.9, 18)},
