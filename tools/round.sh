@@ -35,5 +35,31 @@ echo "== gameplay shots =="
 "$GODOT" --path . --resolution 1600x900 -- "shots=res://shots/$ROUND" shotset=game seed=7 2>&1 \
 	| grep -E "^SHOT" || true
 
+echo "== extra shot sets =="
+for set in fx ads class scope; do
+	"$GODOT" --path . --resolution 1600x900 -- "shots=res://shots/$ROUND" shotset=$set seed=3 2>&1 \
+		| grep -cE "^SHOT" || true
+done
+
+# Probes belong in the round, not in a hand-typed chain per round. One of those
+# chains silently produced a ZERO-BYTE movetest.json and it was handed to a
+# critic as evidence; the critic correctly refused the piece. Nothing downstream
+# reads these files, so an empty one is invisible until someone opens it.
+echo "== probes =="
+run_probe() {   # name, args..., -> $OUT/<name>.json, must be non-empty
+	local name="$1"; shift
+	"$GODOT" --path . --resolution 1280x720 -- "$@" 2>&1 \
+		| grep -E "^$(echo "$name" | tr '[:lower:]' '[:upper:]')" > "$OUT/$name.json" || true
+	if [ ! -s "$OUT/$name.json" ]; then
+		printf '\nPROBE FAILED: %s produced no output (%s is empty)\n' "$name" "$OUT/$name.json"
+		printf 'Refusing to hand a critic an empty evidence file.\n'
+		exit 1
+	fi
+	printf '  %-10s %6s bytes\n' "$name" "$(wc -c < "$OUT/$name.json" | tr -d ' ')"
+}
+run_probe movetest movetest seed=7
+run_probe bottest  bottest  seed=7
+run_probe hittest  hittest  seed=7
+
 echo "== done: $OUT =="
 ls -1 "$OUT"

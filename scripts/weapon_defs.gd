@@ -65,7 +65,7 @@ const LIST := {
 		"ads_fov": 0.7,
 		"display": "SUBMACHINE GUN",
 		"damage": 18.0, "hs_mult": 1.0, "limb_mult": 0.5, "pellets": 1,
-		"interval": 0.075, "mag": 30, "reserve": 180, "reload": 1.40, "switch": 0.32,
+		"interval": 0.100, "mag": 30, "reserve": 180, "reload": 1.40, "switch": 0.32,
 		"spread_hip": 2.4, "spread_ads": 1.1, "spread_move": 0.9,
 		"recoil": {"up": 0.40, "side": 0.32, "recover": 9.0},
 		"falloff": [16.0, 42.0, 0.5],
@@ -84,7 +84,7 @@ const LIST := {
 		# reference needs two. Nothing caught it because the probe derived its
 		# expectations from these same numbers.
 		"damage": 10.0, "hs_mult": 1.25, "limb_mult": 0.5, "pellets": 5,
-		"interval": 0.800, "mag": 6, "reserve": 36, "reload": 2.40, "switch": 0.55,
+		"interval": 0.450, "mag": 6, "reserve": 36, "reload": 2.40, "switch": 0.55,
 		"spread_hip": 6.0, "spread_ads": 4.2, "spread_move": 3.0,
 		"recoil": {"up": 2.2, "side": 0.8, "recover": 4.5},
 		"falloff": [9.0, 24.0, 0.15],

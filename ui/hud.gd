@@ -216,7 +216,10 @@ func _draw_crosshair(c: Vector2) -> void:
 		return
 	var length := 16.0
 	var line := Color(WHITE.r, WHITE.g, WHITE.b, fade)
-	var edge := Color(OUTLINE.r, OUTLINE.g, OUTLINE.b, OUTLINE.a * fade)
+	# The dark edge is what makes the reticle readable on bright stone. Dimming it
+	# with the crosshair dropped contrast faster than opacity and partly undid
+	# the ADS-visibility fix it was part of, so it keeps a floor.
+	var edge := Color(OUTLINE.r, OUTLINE.g, OUTLINE.b, OUTLINE.a * maxf(fade, 0.8))
 	for v in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
 		var a: Vector2 = c + v * gap
 		var b: Vector2 = c + v * (gap + length)

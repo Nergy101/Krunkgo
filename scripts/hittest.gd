@@ -19,6 +19,20 @@ const SOURCED_STK := {
 	"shotgun": [2, 2], "pistol": [5, 4],
 }
 
+## Seconds per shot, same source. STK alone cannot catch a cadence error: the
+## SMG was 25% too fast and the shotgun 78% too slow while the probe reported
+## every weapon matching, because shots-to-kill says nothing about how long
+## those shots take. Time-to-kill is what a player feels.
+## Transcribed from the rate column, and note two of these bit me: I first
+## typed 0.120 for the assault and 1.400 for the sniper from memory, and the
+## check dutifully reported the GAME as wrong. The document says 130ms for the
+## assault (post-v6.0.0 nerf, up from the 120 I remembered) and 1000ms for the
+## sniper. Copy the numbers, never recall them.
+const SOURCED_INTERVAL := {
+	"assault": 0.130, "sniper": 1.000, "smg": 0.100,
+	"shotgun": 0.450, "pistol": 0.150,
+}
+
 const SHOTS_PER_CASE := 240
 const RANGES := [5.0, 20.0, 50.0, 100.0]
 const PLATFORM_Y := 700.0
@@ -237,6 +251,16 @@ func _run() -> void:
 			entry["sourced_stk_head"] = want[1]
 			entry["matches_source"] = entry["shots_to_kill_body"] == want[0] \
 				and entry["shots_to_kill_head"] == want[1]
+		if SOURCED_INTERVAL.has(key):
+			var si: float = float(SOURCED_INTERVAL[key])
+			var mi: float = float(def["interval"])
+			entry["interval_s"] = mi
+			entry["sourced_interval_s"] = si
+			entry["matches_interval"] = absf(mi - si) <= 0.005
+			# Time to kill is the number a player actually feels.
+			entry["ttk_body_s"] = snappedf(float(entry["shots_to_kill_body"] - 1) * mi, 0.001)
+			entry["sourced_ttk_body_s"] = snappedf(float(want[0] - 1) * si, 0.001) \
+				if not want.is_empty() else 0.0
 		var named: Dictionary = {}
 		for z in zones.keys():
 			named[["HEAD", "BODY", "LIMB"][int(z)]] = zones[z]

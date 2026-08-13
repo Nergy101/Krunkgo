@@ -328,11 +328,24 @@ static func _clutter(b: Array) -> void:
 	_pallet(b, Vector3(27, 0, -20), true)
 	for q in [Vector3(22, 0, -26), Vector3(30, 0, -21)]:
 		_barrel(b, q)
-	# Centre-east, the approach from MID to A-site.
+	# Centre-east, the approach from MID to A-site. This block was written to
+	# fix a thin cell and did not do enough: the cell was still 13 against a
+	# map average near 31, the emptiest on the board. A walled well-head and a
+	# stall give it something to fight around rather than four loose props.
 	_container(b, Vector3(8, 0, 6), true, "metal")
 	_pallet(b, Vector3(13, 0, 3), false)
 	_barrel(b, Vector3(6, 0, 12))
 	_box(b, Vector3(2, 0, 10), Vector3(2, 1.6, 2), "crate")
+	# Well-head: a waist-high ring you can fight across but not through.
+	_ring(b, Vector3(9, 0, 9), Vector3(5, 1.3, 5), "wall_b", 0.6)
+	_box(b, Vector3(10, 1.3, 10), Vector3(3, 0.3, 3), "dark")
+	_awning(b, Vector3(4, 3.2, 4), Vector3(3.0, 0.4, 2.5))
+	for q in [Vector3(3, 0, 3), Vector3(14, 0, 9), Vector3(6, 0, 2)]:
+		_barrel(b, q)
+	for q in [Vector3(13, 0, 13), Vector3(4, 0, 14)]:
+		_pallet(b, q, true)
+	_box(b, Vector3(15, 0, 6), Vector3(2, 2.2, 2), "crate")
+	_container(b, Vector3(2, 0, 12), false, "accent")
 
 	# --- north-east: the last thin cell. The occupancy grid had it at 12
 	# against the west's 69, and it is the corner where LONG's east end meets
