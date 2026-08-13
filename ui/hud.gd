@@ -211,7 +211,11 @@ func _draw_crosshair(c: Vector2) -> void:
 		# sight IS the aim point, and it sits exactly on screen centre, so a
 		# second reticle on top of it is clutter. This reverses an earlier
 		# critic note that wanted the crosshair kept while aiming irons.
-		fade = 1.0 - clampf(player.weapon.ads_amount * 1.35, 0.0, 1.0)
+		# Multiplier is 1.0 on purpose. At 1.35 the crosshair was gone by
+		# ads_amount 0.74 while viewmodel.gd only lerps the sight onto centre at
+		# 1.0, so for the last quarter of the raise there was neither a
+		# crosshair nor a settled sight to aim with. Both now land together.
+		fade = 1.0 - clampf(player.weapon.ads_amount, 0.0, 1.0)
 	if fade <= 0.01:
 		return
 	var length := 16.0
