@@ -9,20 +9,26 @@ extends Node
 
 # ------------------------------------------------------------------ MOVEMENT
 #
-# The whole envelope was scaled down about a third after play testing: base
-# 11 m/s with a 26 m/s slide-hop peak crossed the 64 m arena in ~2.5 s, which
-# read as frantic rather than fast and left no time to aim. The SHAPE is
-# unchanged — walking is still brisk, the diagonal strafe bonus is still
-# Krunker's documented 1.2x, and chaining slide-hops still roughly doubles
-# your speed — everything just happens at a pace you can fight at.
-var gravity: float = 22.0
-var max_ground_speed: float = 7.5
-var ground_accel: float = 70.0
-var ground_friction: float = 8.5
-var stop_speed: float = 2.5
-var air_accel: float = 42.0
+# Scaled down twice on play-test feedback. First from base 11 m/s with a 26 m/s
+# slide-hop peak, which crossed the 64 m arena in ~2.5 s and read as frantic;
+# then again, by a further sixth, to the numbers below. The SHAPE is unchanged
+# both times — the diagonal strafe bonus is still Krunker's documented 1.2x and
+# chaining slide-hops still roughly doubles your speed. Accelerations, friction
+# and the jump were scaled with the top speed rather than clamped, so nothing
+# feels mismatched against anything else.
+var gravity: float = 21.0
+var max_ground_speed: float = 6.3
+var ground_accel: float = 58.0
+var ground_friction: float = 8.0
+var stop_speed: float = 2.1
+var air_accel: float = 35.0
 var air_speed_cap: float = 1.3          # quake-style strafe accel window
-var jump_velocity: float = 6.8          # apex ~1.05 m, still clears a crate
+# Apex ~0.86 m, which no longer clears a 1 m crate by jumping. That is fine and
+# deliberate: step_height below is 1.05, so you WALK onto single-block cover
+# rather than hopping it. Measured: the probe climbs four 1 m risers with zero
+# jumps. Raising this to clear a crate would undo the slower feel that was
+# asked for.
+var jump_velocity: float = 6.1
 var jump_buffer: float = 0.12
 var coyote_time: float = 0.09
 var auto_bhop: bool = true
@@ -37,12 +43,12 @@ var crouch_eye_height: float = 0.92
 var crouch_speed_mult: float = 0.45
 var stance_lerp: float = 14.0
 
-var slide_min_speed: float = 4.5
+var slide_min_speed: float = 3.8
 var slide_gain: float = 1.10            # multiplicative, so hops compound
-var slide_boost: float = 1.25
+var slide_boost: float = 1.05
 # Equal to hard_speed_cap on purpose: the ceiling should be set by how well you
 # chain hops, not by a lower constant the chain slams into after three of them.
-var slide_speed_cap: float = 16.5
+var slide_speed_cap: float = 13.8
 # reference/krunker-movement.md section 4: about a quarter second to re-jump
 # out of a slide before friction takes the speed back.
 var slide_rejump_window: float = 0.25
@@ -56,8 +62,8 @@ var slide_cooldown: float = 0.14
 # Wall-jump. reference/krunker-movement.md section 6: a class-defining
 # traversal mechanic, limited to a few consecutive kicks and reset by touching
 # the floor. Charges are restored on landing, never mid-air.
-var wall_jump_velocity: float = 6.4
-var wall_jump_push: float = 4.4
+var wall_jump_velocity: float = 5.8
+var wall_jump_push: float = 3.9
 var wall_jump_charges: int = 2
 
 ## Ledges up to this tall are walked over, no jump needed. One map block is
@@ -66,7 +72,7 @@ var wall_jump_charges: int = 2
 ## readable as cover.
 var step_height: float = 1.05
 
-var hard_speed_cap: float = 16.5
+var hard_speed_cap: float = 13.8
 
 var mouse_sensitivity: float = 0.0022
 var pitch_limit: float = 1.5533         # ~89 degrees

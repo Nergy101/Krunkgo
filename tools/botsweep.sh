@@ -12,6 +12,13 @@ for s in 1 2 3 4 5; do
   # || true swallowing the failure every run silently produced an empty file.
   "$GODOT" --path . --resolution 1280x720 -- bottest seed=$s 2>&1 \
     | grep -E "^BOTTEST" > "$OUT/bottest_seed$s.json" || true
+  # An empty run must not be averaged away. The aggregate happily reported
+  # "runs": 4 from a five-seed sweep, which is the same silent-empty-evidence
+  # bug that cost a critic round when movetest.json came out zero bytes.
+  if [ ! -s "$OUT/bottest_seed$s.json" ]; then
+    printf '\nPROBE FAILED: bottest seed=%s produced no output\n' "$s"
+    exit 1
+  fi
 done
 python3 - "$OUT" <<'PY'
 import json, sys, glob, statistics as st

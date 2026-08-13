@@ -203,3 +203,12 @@ made the engine read that setting back as `false` while the file plainly said
 or arm64 if ETC2 ASTC texture format is disabled".
 
 `make check` now fails on any `#` comment in that file.
+
+## Aiming
+
+Right mouse aims. The gun and its front sight move to **exactly the centre of
+the screen** and the HUD crosshair disappears — the sight is the aim point, so
+a second reticle on top of it is clutter. This is a deliberate departure from
+Krunker, which keeps a canted off-centre gun and its crosshair while aiming
+irons: two critics argued for the Krunker behaviour and it is simply worse to
+shoot with. A scoped weapon draws its own reticle inside the optic.

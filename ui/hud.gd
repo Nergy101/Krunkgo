@@ -207,11 +207,11 @@ func _draw_crosshair(c: Vector2) -> void:
 		gap = minf(20.0 + player.weapon.spread_degrees() * 12.0, 170.0)
 		# Aiming replaces the crosshair with the weapon's own sights, which now
 		# sit on the camera axis. Leaving both up gave two competing aim points.
-		# Was faded to nothing on ADS, which left the iron-sight frames with no
-		# reticle at all. Krunker keeps its crosshair up while aiming; only a
-		# scope replaces it, and the scope draws its own.
-		var scoped: bool = bool(player.weapon.def.get("scoped", false))
-		fade = 0.0 if scoped else 1.0 - 0.45 * clampf(player.weapon.ads_amount, 0.0, 1.0)
+		# Owner preference: the crosshair goes away entirely when you aim. The
+		# sight IS the aim point, and it sits exactly on screen centre, so a
+		# second reticle on top of it is clutter. This reverses an earlier
+		# critic note that wanted the crosshair kept while aiming irons.
+		fade = 1.0 - clampf(player.weapon.ads_amount * 1.35, 0.0, 1.0)
 	if fade <= 0.01:
 		return
 	var length := 16.0

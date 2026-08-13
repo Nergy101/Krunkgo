@@ -56,15 +56,13 @@ var _near_z: float = 0.0
 const ADS_NEAR_CLEAR := 0.92
 var ads_pos := Vector3(0.0, -0.10, ADS_DEPTH)
 var rest_rot := Vector3(0.045, 0.150, -0.235)     # the cant
-## Krunker's signature is a CANTED, off-centre gun, and zeroing the cant on ADS
-## threw that away at exactly the moment the sight picture matters. The cant is
-## kept at ~40% while aimed; ads_pos below then solves for the ROTATED sight
-## position, so alignment survives the tilt instead of being bought by
-## flattening the gun into a vertical pillar.
-## ~68% of the rest cant. At 40% the maths said "canted" and the frame still
-## read dead-vertical, because the two arms sat near-symmetric about the
-## centreline at that scale and the eye takes symmetry as upright.
-var ads_rot := Vector3(0.026, 0.085, -0.160)
+## Owner preference, and it overrides the critic that asked for a canted ADS:
+## aiming should put the gun and its sight EXACTLY on the centre of the
+## screen so you can actually aim with it. A cant looks more like Krunker
+## in a screenshot and is worse to shoot with, so this stays zero.
+## ads_pos still solves through Basis.from_euler(ads_rot), which is the
+## identity here, so the sight lands dead centre by construction.
+var ads_rot := Vector3(0.0, 0.0, 0.0)
 
 var kick: float = 0.0
 var kick_rot: float = 0.0
