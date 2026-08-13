@@ -7,7 +7,7 @@ extends Node
 ## Prints one JSON line prefixed MOVETEST so a critic can check our movement
 ## envelope against the claims in reference/krunker-movement.md.
 
-enum Phase { WALK, HOP, STRAFE, TURN, WALL, STAIRS, EARLY, LATE, DONE }
+enum Phase { WALK, HOP, STRAFE, TURN, WALL, STAIRS, EARLY, LATE, MOUNT, DONE }
 
 var player: Player
 var phase: int = Phase.WALK
@@ -43,6 +43,13 @@ var early_ratio: float = -1.0
 var late_ratio: float = -1.0
 var early_since: float = -1.0
 var late_since: float = -1.0
+## Cover heights the map actually uses, and whether each can be got on top of.
+## A critic found the map designs three cover tiers - peek, vault, hard-block -
+## while the motor supported only two, because everything above step_height was
+## unclimbable and no crate is that short.
+const MOUNT_HEIGHTS := [1.2, 1.6, 2.0, 2.4]
+var mount_idx: int = 0
+var mount_ok: Array = []
 
 func _ready() -> void:
 	name = "MoveTest"
@@ -88,6 +95,15 @@ func _build_platform() -> void:
 	slab.add_child(wall)
 	# Four 1-unit risers. A single map block is 1.0, and that must be walkable
 	# without jumping or every staircase in the arena is a wall.
+	# Isolated blocks at the map's real cover heights, for the MOUNT phase.
+	for i in MOUNT_HEIGHTS.size():
+		var mb := CollisionShape3D.new()
+		var mbx := BoxShape3D.new()
+		var mh: float = float(MOUNT_HEIGHTS[i])
+		mbx.size = Vector3(6, mh, 6)
+		mb.shape = mbx
+		mb.position = Vector3(-40.0 + float(i) * 14.0, PLATFORM_Y + 1.0 + mh * 0.5, 40.0)
+		slab.add_child(mb)
 	for i in 4:
 		var st := CollisionShape3D.new()
 		var sb := BoxShape3D.new()
@@ -198,7 +214,42 @@ func _physics_process(delta: float) -> void:
 			var late_jump: bool = t >= 1.4
 			_timed_step(m, fwd, late_jump, late_jump, delta)
 			if t >= 2.2:
-				_finish()
+				_reset(Phase.MOUNT)
+				_place_mount()
+
+		Phase.MOUNT:
+			# Run at a block of each cover height and see which can be got on
+			# top of. The first second is a GROUND run-up: holding jump from a
+			# standstill leaves you airborne on low air-accel and the probe
+			# crawled forward at 1.4 m/s, never reaching the block at all.
+			# Wall-jump OFF for this phase. With charges available the probe
+			# climbed a 2.4 m face by kicking off it and reported every height
+			# as "mountable", which measured wall-jump and called it a mantle.
+			# This phase is about what a jump plus a mantle can reach.
+			m.wall_charges = 0
+			var windup: bool = t < 1.0
+			m.step(Vector3(0, 0, 1), not windup, false, delta)
+			var h: float = float(MOUNT_HEIGHTS[mount_idx])
+			if player.global_position.y >= ground_y + h - 0.15:
+				mount_ok.append(h)
+				mount_idx += 1
+				if mount_idx >= MOUNT_HEIGHTS.size():
+					_finish()
+				else:
+					_reset(Phase.MOUNT)
+					_place_mount()
+			elif t >= 3.2:
+				mount_idx += 1
+				if mount_idx >= MOUNT_HEIGHTS.size():
+					_finish()
+				else:
+					_reset(Phase.MOUNT)
+					_place_mount()
+
+func _place_mount() -> void:
+	player.global_position = Vector3(-40.0 + float(mount_idx) * 14.0,
+		PLATFORM_Y + 1.2, 28.0)
+	player.velocity = Vector3.ZERO
 
 ## Step the motor while recording what the jump did to horizontal speed.
 func _timed_step(m: Motor, dir: Vector3, jump: bool, crouch: bool, delta: float) -> void:
@@ -267,6 +318,10 @@ func _finish() -> void:
 		"stairs_climbed_m_no_jump": stair_climbed,
 		"stairs_jumps_used": stair_jumps,
 		"stairs_available_m": 3.0,   # four risers, top sits 3 m above the slab
+		"step_height_m": Tuning.step_height,
+		"cover_heights_tested_m": MOUNT_HEIGHTS,
+		"cover_heights_mountable_m": mount_ok,
+		"mount_excludes_wall_jump": true,
 		"slide_late_penalty_setting": Tuning.slide_late_penalty,
 		"rejump_early_ratio": snappedf(early_ratio, 0.001),
 		"rejump_early_since_landing_s": snappedf(early_since, 0.001),

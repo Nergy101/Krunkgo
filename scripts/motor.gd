@@ -162,7 +162,14 @@ func _wall_jump() -> void:
 func _step_up(dir: Vector3) -> void:
 	if not body.is_on_wall():
 		return
-	if not grounded and coyote <= 0.0:
+	# Grounded, in coyote time, or MANTLING: falling onto a ledge you jumped at.
+	# Without the third case the map had no "vault" tier at all — step_height is
+	# 1.05 and the jump apex is 0.86, so anything above 1.05 was unclimbable
+	# while every crate on the map is 1.2 m or taller. Jump + mantle reaches
+	# about 1.9 m, which restores peek / vault / hard-block as three distinct
+	# cover heights. Only while descending, so it cannot boost a rising jump.
+	var mantling: bool = not grounded and body.velocity.y <= 0.1
+	if not grounded and coyote <= 0.0 and not mantling:
 		return
 	# Use the INTENDED direction, not the post-collision velocity. move_and_slide
 	# has already zeroed the horizontal component against the riser by the time
