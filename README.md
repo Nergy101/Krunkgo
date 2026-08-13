@@ -46,9 +46,10 @@ with instructions rather than pretending to succeed.
 ```
 WASD                    move — holding two keys gives the 1.2x diagonal strafe bonus
 Space                   jump; hold it, auto-bhop is on. Single-block steps and
-                        stairs are walked over, no jump needed
+                        stairs are walked over, no jump needed, and a jump at
+                        a crate up to 1.6 m mantles you onto it
 Shift                   slide
-Shift + Space           slide-hop. Chains to 16.5 m/s from a base of 7.5
+Shift + Space           slide-hop. Chains to 13.8 m/s from a base of 6.3
 Space into a wall       wall-jump, two charges, restored on landing
 LMB / RMB               fire / aim. Aiming hides the crosshair and puts the weapon's
                         own sight exactly on the impact point. Standing still and
@@ -65,21 +66,25 @@ F5                      restart the match
 Esc                     pause and release the mouse
 ```
 
-The number under the crosshair is your speed. Watch it climb from 75 to 165
+The number under the crosshair is your speed. Watch it climb from 63 to 138
 while slide-hopping — that readout is where Krunker puts it too.
 
 ## How it plays
 
-Movement is the skill expression, as it is in Krunker. Walking is 7.5 m/s;
-chaining jump into slide into jump compounds to the 16.5 m/s ceiling over about
+Movement is the skill expression, as it is in Krunker. Walking is 6.3 m/s;
+chaining jump into slide into jump compounds to the 13.8 m/s ceiling over about
 five hops, and holding two direction keys is worth exactly 1.2x, which is the
 documented Krunker default. There is no sprint key.
 
-Those numbers are deliberately a third slower than the first tuning pass. At
-11 m/s base and a 26 m/s peak you crossed the whole 64 m arena in about two and
-a half seconds, which read as frantic rather than fast and left no room to aim.
-The shape survived the cut: slide-hopping still roughly doubles your speed and
-covers 1.7x the ground of walking over the same three seconds.
+Those numbers are a little over half the first tuning pass, cut twice. At 11
+m/s base and a 26 m/s peak you crossed the whole 64 m arena in about two and a
+half seconds, which read as frantic rather than fast and left no room to aim.
+The shape survived both cuts: `make movetest` measures slide-hopping at 2.19x
+your walking speed and 1.71x the ground covered over the same three seconds.
+
+Cover comes in three heights and the motor answers each differently: you shoot
+over the low tier, mantle the middle one — jump at it while falling and you are
+pulled up — and have to walk around anything above about 1.9 m.
 
 You pick a class before spawning. A class is only a primary weapon — everyone
 carries the pistol as a secondary, so no pick can leave you with no answer at
@@ -157,7 +162,7 @@ Feel is not judgeable from a screenshot, so the things that matter have probes
 that print one line of JSON:
 
 ```sh
-make movetest    # slide-hop gain, strafe bonus, jump apex, wall-jump
+make movetest    # slide-hop gain, strafe bonus, jump apex, wall-jump, mantle
 make bottest     # per-bot idle, engagement, retreat, cover, slide
 make hittest     # shots-to-kill vs the sourced table, falloff, first-shot accuracy
 make classtest   # class-select state machine, incl. handing control back to gameplay
