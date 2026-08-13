@@ -8,6 +8,8 @@ No multiplayer, no asset files, no external dependencies. Every texture and
 every sound is synthesised at boot, and every scene except a one-line entry
 point is constructed in code.
 
+![BURG, the whole arena from above the south-east corner](shots/dev/map_overview.png)
+
 ```sh
 make run
 ```
@@ -110,6 +112,12 @@ The arena has named lanes, because a map without them is a diagram:
 - **TUNNEL** — a covered flank that lets you leave LONG without crossing open
   ground
 
+|  |  |
+|---|---|
+| ![LONG](shots/dev/map_long.png)<br>**LONG**, east down the lane from its west end. Crates and a stone divider stagger the cover, which is what makes it crossable under fire. | ![MID](shots/dev/map_mid.png)<br>**MID** from the west alley: the plaza lip you crouch-peek LONG over, the shrine on top of it, and a telegraph run cutting the skyline. |
+| ![A-SITE](shots/dev/map_roof.png)<br>**A-SITE**, 14 m up over the guardhouse. This is the one vantage that reads the whole map, and the reason the roof is worth contesting. | ![WEST TERRACE](shots/dev/map_terrace.png)<br>**WEST TERRACE**, down an alley. Three houses, three different rooflines, awnings low enough to cut a sniper's angle into it. |
+| ![B-SITE](shots/dev/map_interior.png)<br>**B-SITE**, inside the warehouse. Two entrances, interior cover you can fight around, daylight from the far doorway. | The six angles are fixed cameras in `map_data.gd:review_cameras()`, so every round is compared like with like. `make shots` recaptures all of them at 1600x900 straight into the files this page embeds — no touch-ups, no staging. |
+
 ## Project structure
 
 ```
@@ -154,6 +162,7 @@ make bottest     # per-bot idle, engagement, retreat, cover, slide
 make hittest     # shots-to-kill vs the sourced table, falloff, first-shot accuracy
 make classtest   # class-select state machine, incl. handing control back to gameplay
 make bench       # frame timings with vsync off
+make shots       # the six map angles above, rewritten in place
 make round       # all of the above plus every screenshot
 ```
 

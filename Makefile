@@ -132,7 +132,11 @@ classtest: import ## class-select state machine, including returning control
 ## ---------------------------------------------------------------- cleaning
 
 clean: ## remove build output and captured screenshots
-	rm -rf $(BUILD_DIR) shots
+	rm -rf $(BUILD_DIR)
+	@# shots/dev/map_*.png are committed — the README embeds them. Everything
+	@# else under shots/ is regenerable evidence and goes.
+	@find shots -mindepth 1 -maxdepth 1 ! -name dev -exec rm -rf {} + 2>/dev/null || true
+	@find shots/dev -mindepth 1 ! -name 'map_*.png' -delete 2>/dev/null || true
 
 distclean: clean ## also drop Godot's import cache
 	rm -rf .godot

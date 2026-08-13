@@ -18,7 +18,15 @@ obj/
 # ---------------------------------------------------------------- generated evidence
 # Screenshots and probe JSON from `tools/round.sh`. Roughly 8 MB per round and
 # fully reproducible with `make round`, so there is no reason to version them.
-shots/
+#
+# Exception: the six fixed-angle map shots of the default round. The README
+# embeds them, so they have to be in the repo or the page renders broken
+# images. `make shots` rewrites them in place, which is the point — the
+# README always shows the current build.
+shots/*
+!shots/dev/
+shots/dev/*
+!shots/dev/map_*.png
 
 # ---------------------------------------------------------------- third-party reference
 # reference/bar/ holds real Krunker.io gameplay screenshots (official Steam
