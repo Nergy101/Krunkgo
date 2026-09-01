@@ -126,34 +126,95 @@ func validate_reachability() -> void:
 	# pass RELOCATES unreachable ones, and that inconsistency quietly shrank
 	# the lobby: adding the market district buried three spawns and the count
 	# went 12 -> 9 with nothing failing. Both failure modes are repairable.
-	var target: int = MapData.spawns().size()
-	for _r in maxi(bad, target - good.size()):
-		var best := Vector3.INF
-		var best_score: float = -1.0
-		for gx in 30:
-			for gz in 30:
-				var c := Vector3(-29.0 + float(gx) * 2.0, 0.0, -29.0 + float(gz) * 2.0)
-				var snapped: Vector3 = NavigationServer3D.map_get_closest_point(map, c)
-				if snapped.distance_to(c) > 0.6:
-					continue                       # not standable ground
-				var path: PackedVector3Array = NavigationServer3D.map_get_path(
-					map, snapped, good[0], true)
-				if path.is_empty() or path[path.size() - 1].distance_to(good[0]) > 2.5:
-					continue                       # in a pocket like the last one
-				var score: float = 1e9
-				for g in good:
-					score = minf(score, snapped.distance_to(g))
-				if score > best_score:
-					best_score = score
-					best = snapped
-		if best == Vector3.INF:
-			break
-		good.append(best)
+	# Standoff has a team-side invariant: repairs for the north (+z) and
+	# south (-z) pools must stay on that side. The old global repair loop could
+	# replace a dropped south spawn with a perfectly reachable north point;
+	# `team_spawn_pool()` then silently had too few points for one team, and its
+	# fallback to all spawns put that team on the wrong side (or at the wall).
+	var authored: Array = MapData.spawns()
+	var target: int = authored.size()
+	var sides: Array = [0]
+	if MapData.map_id == "standoff":
+		sides = [-1, 1]
+	for side in sides:
+		var side_good: Array = good.filter(func(p): return _spawn_side(p) == side)
+		var side_target: int = authored.filter(func(p): return _spawn_side(p) == side).size()
+		var side_bad: int = 0
+		for original in spawn_points:
+			if _spawn_side(original) == side and not good.has(original):
+				side_bad += 1
+		for _r in maxi(side_bad, side_target - side_good.size()):
+			var best := Vector3.INF
+			var best_score: float = -1.0
+			for gx in 30:
+				for gz in 30:
+					var c := _repair_candidate(gx, gz, side)
+					if c == Vector3.INF:
+						continue
+					var snapped: Vector3 = NavigationServer3D.map_get_closest_point(map, c)
+					if snapped.distance_to(c) > 0.6:
+						continue                       # not standable ground
+					if _spawn_side(snapped) != side or not _inside_spawn_bounds(snapped):
+						continue
+					if not _clear_spawn(snapped, MapData.boxes()):
+						continue
+					var anchor: Vector3 = side_good[0] if not side_good.is_empty() else good[0]
+					var path: PackedVector3Array = NavigationServer3D.map_get_path(
+						map, snapped, anchor, true)
+					if path.is_empty() or path[path.size() - 1].distance_to(anchor) > 2.5:
+						continue                       # in a pocket like the last one
+					var score: float = 1e9
+					for g in side_good:
+						score = minf(score, snapped.distance_to(g))
+					if score > best_score:
+						best_score = score
+						best = snapped
+			if best == Vector3.INF:
+				break
+			side_good.append(best)
+		good = good.filter(func(p): return _spawn_side(p) != side)
+		good.append_array(side_good)
 	spawn_points = good
 	print("REACHCHECK ", JSON.stringify({
 		"kept": spawn_points.size(), "authored": target, "relocated": bad,
 		"frames_waited": waited,
 		"min_separation_m": snappedf(_min_separation(spawn_points), 0.1)}))
+
+func _spawn_side(point: Vector3) -> int:
+	if MapData.map_id != "standoff":
+		return 0
+	return 1 if point.z > 0.0 else -1
+
+func _repair_candidate(gx: int, gz: int, side: int) -> Vector3:
+	var min_coord: float = -29.0
+	var step: float = 2.0
+	if MapData.map_id == "standoff":
+		# Keep the candidate well inside the 1 m perimeter wall. In particular,
+		# do not let NavigationServer pick the walkable lip beside that wall.
+		min_coord = -20.0
+		step = 1.25
+	var c := Vector3(min_coord + float(gx) * step, 0.0,
+		min_coord + float(gz) * step)
+	if MapData.map_id == "standoff" and _spawn_side(c) != side:
+		return Vector3.INF
+	return c
+
+func _inside_spawn_bounds(point: Vector3) -> bool:
+	if MapData.map_id != "standoff":
+		return true
+	return absf(point.x) <= 20.0 and absf(point.z) <= 20.0
+
+func _clear_spawn(point: Vector3, boxes: Array) -> bool:
+	var lo := Vector3(point.x - 0.45, point.y + 0.05, point.z - 0.45)
+	var hi := Vector3(point.x + 0.45, point.y + Tuning.stand_height, point.z + 0.45)
+	for b in boxes:
+		var bp: Vector3 = b["p"]
+		var bs: Vector3 = b["s"]
+		if lo.x < bp.x + bs.x and hi.x > bp.x \
+				and lo.y < bp.y + bs.y and hi.y > bp.y \
+				and lo.z < bp.z + bs.z and hi.z > bp.z:
+			return false
+	return true
 
 func _reach_counts(points: Array, map: RID) -> Array[int]:
 	var out: Array[int] = []
@@ -240,15 +301,37 @@ static func _world_uv(w: Vector3, n: Vector3) -> Vector2:
 ## on a wide-open stretch of ground. `away_from` may hold dead actors (their
 ## corpses do not threaten anyone) — only Actor.is_alive() ones count.
 func random_spawn(away_from: Array = []) -> Vector3:
-	var enemies: Array = []
-	for a in away_from:
+	return _best_spawn(spawn_points, _living(away_from)) + Vector3(0, 0.2, 0)
+
+## TDM: pick a spawn on the side a team owns — blue on +z (the north base),
+## red on -z (the south base) — so each team starts on its half of the arena.
+## Falls back to all spawns if a side is empty.
+func random_team_spawn(team: int, away_from: Array = []) -> Vector3:
+	var pool := team_spawn_pool(team)
+	if pool.is_empty():
+		push_error("MapBuilder: no valid spawn points for TDM team %d" % team)
+		# Keep the side invariant even if a future map edit breaks validation.
+		return Vector3(-10, 0.2, 5 if team == 0 else -5)
+	return _best_spawn(pool, _living(away_from)) + Vector3(0, 0.2, 0)
+
+## The spawn points a TDM team may use: blue (team 0) owns +z, red (team 1) -z.
+func team_spawn_pool(team: int) -> Array:
+	return spawn_points.filter(func(p):
+		return _inside_spawn_bounds(p) and ((p.z > 0.0) if team == 0 else (p.z < 0.0)))
+
+func _living(actors: Array) -> Array:
+	var out: Array = []
+	for a in actors:
 		if is_instance_valid(a) and a.is_alive():
-			enemies.append(a)
+			out.append(a)
+	return out
+
+func _best_spawn(pool: Array, enemies: Array) -> Vector3:
 	var space := get_world_3d().direct_space_state
-	var best: Vector3 = spawn_points[Game.rng.randi() % spawn_points.size()]
+	var best: Vector3 = pool[Game.rng.randi() % pool.size()]
 	var best_score := -1e18
 	for i in 6:
-		var c: Vector3 = spawn_points[Game.rng.randi() % spawn_points.size()]
+		var c: Vector3 = pool[Game.rng.randi() % pool.size()]
 		var eye: Vector3 = c + Vector3(0, Tuning.eye_height, 0)
 		var min_dist := 1e9
 		var seen := 0
@@ -262,7 +345,7 @@ func random_spawn(away_from: Array = []) -> Vector3:
 		if score > best_score:
 			best_score = score
 			best = c
-	return best + Vector3(0, 0.2, 0)
+	return best
 
 ## A box with a zero or negative dimension renders with inverted winding, so
 ## backface culling makes it invisible from the outside — you look straight
@@ -358,23 +441,55 @@ func _validate(boxes: Array, nudged: int = 0) -> void:
 	# scattered crates" by eye. Nothing in the build could see that, so an
 	# empty region could be reintroduced by any layout edit without a warning.
 	# Report playable-height cover per 16x16 m cell instead.
+	# Standoff is mirror-symmetric across z=0 and half the size (48 m), so the
+	# Burg grid bounds/offset would put all its cells off-center and its
+	# z-mirrored pairs in different rows — the probe could never confirm the
+	# map's own "fair by construction" claim (round-2 TDM critic found the
+	# rows reading unequal for exactly that reason). Grid per map.
+	var half: float = 32.0 if MapData.map_id == "burg" else 24.0
+	var cell_size: float = 16.0
+	var n: int = int(half * 2.0 / cell_size)
 	var cell := {}
 	for b in boxes:
 		var p: Vector3 = b["p"]
 		var s: Vector3 = b["s"]
 		if p.y > 6.0 or s.y < 0.6:
 			continue                     # roofs and floor slabs are not cover
-		var key := "%d,%d" % [floori((p.x + 32.0) / 16.0), floori((p.z + 32.0) / 16.0)]
+		var key := "%d,%d" % [floori((p.x + half) / cell_size), floori((p.z + half) / cell_size)]
 		cell[key] = int(cell.get(key, 0)) + 1
 	var counts: Array = []
-	for gz in 4:
+	for gz in n:
 		var row: Array = []
-		for gx in 4:
+		for gx in n:
 			row.append(int(cell.get("%d,%d" % [gx, gz], 0)))
 		counts.append(row)
+	# Mirror-symmetry check: for standoff, every cover box must have an exact
+	# z-reflection partner in the list. (Comparing 16 m grid rows instead is
+	# boundary-sensitive: a box sitting exactly on a cell edge flips rows after
+	# the deconfliction nudge, so the grid reports asymmetry on a perfectly
+	# mirrored list — this exact test is the honest one.)
+	var mirror_ok: bool = true
+	if MapData.map_id == "standoff":
+		var keys := {}
+		for b in boxes:
+			if b["p"].y > 6.0 or b["s"].y < 0.6:
+				continue
+			var k := "%s|%s|%s" % [_snap_v(b["p"]), _snap_v(b["s"]), b["c"]]
+			keys[k] = int(keys.get(k, 0)) + 1
+		for b in boxes:
+			if b["p"].y > 6.0 or b["s"].y < 0.6:
+				continue
+			var rp := Vector3(b["p"].x, b["p"].y, -(b["p"].z + b["s"].z))
+			var k := "%s|%s|%s" % [_snap_v(rp), _snap_v(b["s"]), b["c"]]
+			if int(keys.get(k, 0)) < 1:
+				mirror_ok = false
+				break
 	print("MAPCHECK ", JSON.stringify({"boxes": boxes.size(), "degenerate": bad,
 		"coplanar_face_pairs": overlaps.size(), "nudged": nudged,
-		"cover_per_16m_cell": counts}))
+		"cover_per_16m_cell": counts, "mirror_symmetric": mirror_ok}))
+
+static func _snap_v(v: Vector3) -> String:
+	return "(%.3f, %.3f, %.3f)" % [v.x, v.y, v.z]
 
 ## Area of any face plane the two boxes SHARE. Coincident faces at the same
 ## depth are what the depth buffer flickers between; a prop merely buried

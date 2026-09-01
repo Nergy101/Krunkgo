@@ -23,6 +23,37 @@ extends RefCounted
 ##
 ## A box is {"p": min corner, "s": size, "c": palette key}.
 
+## Which map the game plays. "burg" is the original village; "standoff" is the
+## symmetric duel arena. Set before MapBuilder.build() — harness `map=standoff`
+## or the in-game M key (which rebuilds the arena live). The three entry points
+## dispatch on this so geometry, spawns and review cameras all describe the
+## same arena.
+static var map_id: String = "burg"
+
+static func select_map(id: String) -> void:
+	if id == "standoff" or id == "burg":
+		map_id = id
+
+static func cycle_map() -> void:
+	map_id = "standoff" if map_id == "burg" else "burg"
+
+static func map_display() -> String:
+	return "STANDOFF" if map_id == "standoff" else "BURG"
+
+## Which game mode a map is played as. The symmetric standoff arena is a Team
+## Deathmatch; the burg village is Free For All. Game.is_tdm() reads this.
+static func mode() -> String:
+	return "tdm" if map_id == "standoff" else "ffa"
+
+static func boxes() -> Array:
+	return boxes_standoff() if map_id == "standoff" else boxes_burg()
+
+static func spawns() -> Array:
+	return spawns_standoff() if map_id == "standoff" else spawns_burg()
+
+static func review_cameras() -> Array:
+	return review_cameras_standoff() if map_id == "standoff" else review_cameras_burg()
+
 const H := 9.0        # perimeter wall height
 ## Window aperture, in metres above the wall's own base. A 1 m slot whose sill
 ## sits above standing eye height (1.62) reads as a window from outside instead
@@ -31,7 +62,7 @@ const SILL := 2.1
 const LINTEL := 3.1
 const WINDOW_PERIOD := 6
 
-static func boxes() -> Array:
+static func boxes_burg() -> Array:
 	var b: Array = []
 	_box(b, Vector3(-32, -1, -32), Vector3(64, 1, 64), "road")
 	_ring(b, Vector3(-32, 0, -32), Vector3(64, H, 64), "wall_c", 1.0)
@@ -372,7 +403,7 @@ static func _clutter(b: Array) -> void:
 	for i in 3:
 		_awning(b, Vector3(-19, 4, -13.0 + i * 9.0), Vector3(2.5, 0.4, 4))
 
-static func spawns() -> Array:
+static func spawns_burg() -> Array:
 	return [
 		# Pulled in from +/-28: the perimeter towers were widened from a 4 to a
 		# 5 and 6 footprint and swallowed all four corner spawns, so a third of
@@ -386,7 +417,7 @@ static func spawns() -> Array:
 ## Fixed angles so critics compare like with like every round. Each one is
 ## checked to sit in open air — an earlier set had two cameras buried inside
 ## solid boxes and produced five shots of the inside of a wall.
-static func review_cameras() -> Array:
+static func review_cameras_burg() -> Array:
 	return [
 		# Pulled in from (40,34,40). The arena occupied a fraction of the frame
 		# while the reference render fills it, which made a density comparison
@@ -402,6 +433,111 @@ static func review_cameras() -> Array:
 		{"name": "terrace", "pos": Vector3(-9, 2.0, -5), "look": Vector3(-27, 3.0, -5)},
 	]
 
+# ------------------------------------------------------------------ standoff
+## The second map: a symmetric duel / standoff arena. Two identical starting
+## bases face each other across an open middle that holds only a few boxes.
+## Mirror-symmetric across z = 0 by construction: the approach cover is written
+## once for +z and emitted again reflected, so the two sides cannot drift apart.
+## (The bases are written per-side because the door must face the middle on both.)
+static func boxes_standoff() -> Array:
+	var b: Array = []
+	_box(b, Vector3(-24, -1, -24), Vector3(48, 1, 48), "road")
+	_ring(b, Vector3(-24, 0, -24), Vector3(48, 4.5, 48), "wall_c", 1.0)
+	# four corner towers flush with the ring's inner face, crenellated tops
+	for c in [Vector3(20, 4.5, 20), Vector3(20, 4.5, -23),
+			Vector3(-23, 4.5, 20), Vector3(-23, 4.5, -23)]:
+		_box(b, c, Vector3(3, 3, 3), "wall_b")
+		for ci in 2:
+			for cj in 2:
+				_box(b, c + Vector3(ci * 2, 3, cj * 2), Vector3(1, 1, 1), "wall_c")
+	_standoff_base(b, 1.0)      # north starting base
+	_standoff_base(b, -1.0)     # south starting base
+	var mid: Array = []
+	_standoff_mid_plus(mid)
+	for bx in mid:
+		_box(b, bx["p"], bx["s"], bx["c"])
+		_box(b, _ref_p(bx["p"], bx["s"]), bx["s"], bx["c"])
+	_standoff_center(b)
+	return b
+
+## One starting base. `s` is +1 (north, z>0) or -1 (south, z<0). The north
+## half is authored once and, for the south, every box is reflected across z=0
+## so the two bases are exact mirrors. (Reflection also lands the south
+## building's door on its center-facing z+ face, so no per-side door handling
+## is needed.)
+static func _standoff_base(b: Array, s: float) -> void:
+	var half: Array = []
+	# the "starting building": two floors, flat roof, door toward the middle
+	_building(half, Vector3(-6, 0, 9), Vector3(12, 6, 8), "wall_a", "roof", 2, "z-", "flat")
+	# a low fence on either side of the building, fencing in the spawn yard
+	_wall_run(half, Vector3(-7.5, 0, 4), Vector3(0, 0, 1), 5, 1.4, 1.0, "wall_b", [], 0)
+	_wall_run(half, Vector3(7.5, 0, 4), Vector3(0, 0, 1), 5, 1.4, 1.0, "wall_b", [], 0)
+	# yard clutter: two crates flanking the door, pallets and barrels at the sides
+	_box(half, Vector3(-3, 0, 6), Vector3(2, 2, 2), "crate")
+	_box(half, Vector3(3, 0, 6), Vector3(2, 2, 2), "crate")
+	_pallet(half, Vector3(-9, 0, 14), true)
+	_pallet(half, Vector3(9, 0, 14), true)
+	_barrel(half, Vector3(-9, 0, 11))
+	_barrel(half, Vector3(9, 0, 11))
+	_barrel(half, Vector3(-9, 0, 17))
+	_barrel(half, Vector3(9, 0, 17))
+	if s > 0.0:
+		for bx in half:
+			_box(b, bx["p"], bx["s"], bx["c"])
+	else:
+		for bx in half:
+			_box(b, _ref_p(bx["p"], bx["s"]), bx["s"], bx["c"])
+
+## Approach cover leading into the middle, all in z >= 0 so it reflects cleanly.
+static func _standoff_mid_plus(b: Array) -> void:
+	_wall_run(b, Vector3(-9, 0, 2), Vector3(1, 0, 0), 6, 1.6, 1.0, "wall_b", [], 0)
+	_wall_run(b, Vector3(3, 0, 2), Vector3(1, 0, 0), 6, 1.6, 1.0, "wall_b", [], 0)
+
+## The middle itself: just a few boxes, laid out symmetric across the z=0
+## axis BY CONSTRUCTION — each +z piece is emitted again through _ref_p so
+## the halves cannot drift (hand-writing the −z counterparts at "eyeballed"
+## positions put crates/barrels/pallets at the wrong mirrored z and broke the
+## map's own fairness claim; found by the round-2 symmetry probe).
+static func _standoff_center(b: Array) -> void:
+	_container(b, Vector3(-2.5, 0, -1), true, "metal")
+	var half: Array = []
+	_box(half, Vector3(6.0, 0, 2.0), Vector3(2, 2, 2), "crate")
+	_barrel(half, Vector3(3.0, 0, 2.5))
+	_pallet(half, Vector3(0, 0, 3.0), true)
+	for bx in half:
+		_box(b, bx["p"], bx["s"], bx["c"])
+		_box(b, _ref_p(bx["p"], bx["s"]), bx["s"], bx["c"])
+
+## Reflect a box's min corner across the z = 0 plane; size is unchanged.
+static func _ref_p(p: Vector3, s: Vector3) -> Vector3:
+	return Vector3(p.x, p.y, -(p.z + s.z))
+
+static func spawns_standoff() -> Array:
+	# Two earlier spawn sets read as "outside the map": (0,0,±6) sat in front of
+	# the building's door and were path-pulled into its sealed interior (reach 0
+	# → relocated to the side walls), and the back band (0,±19),(±12,±16) sat
+	# between the building and the 4.5 m perimeter wall, so actors there looked
+	# trapped against the map edge. All spawns are now on open, well-connected
+	# ground in the front of each base (z within ±13, x within ±12), never in
+	# front of the door and never in the tight band behind the building.
+	return [
+		Vector3(-9, 0, 5), Vector3(9, 0, 5),
+		Vector3(-12, 0, 10), Vector3(12, 0, 10),
+		Vector3(-9, 0, 13), Vector3(9, 0, 13),
+		Vector3(-9, 0, -5), Vector3(9, 0, -5),
+		Vector3(-12, 0, -10), Vector3(12, 0, -10),
+		Vector3(-9, 0, -13), Vector3(9, 0, -13),
+	]
+
+static func review_cameras_standoff() -> Array:
+	return [
+		{"name": "overview", "pos": Vector3(20, 18, 20), "look": Vector3(0, 0, 0)},
+		{"name": "northbase", "pos": Vector3(0, 2.2, 8), "look": Vector3(0, 3, -12)},
+		{"name": "southbase", "pos": Vector3(0, 2.2, -8), "look": Vector3(0, 3, 12)},
+		{"name": "mid", "pos": Vector3(12, 3, 0), "look": Vector3(-12, 1, 0)},
+		{"name": "flank", "pos": Vector3(12, 1.6, 0), "look": Vector3(-6, 1.5, 0)},
+	]
+
 # ------------------------------------------------------------------ helpers
 static func _box(b: Array, p: Vector3, s: Vector3, c: String) -> void:
 	b.append({"p": p, "s": s, "c": c})
@@ -409,6 +545,9 @@ static func _box(b: Array, p: Vector3, s: Vector3, c: String) -> void:
 static func _ring(b: Array, p: Vector3, s: Vector3, c: String, t: float) -> void:
 	_box(b, Vector3(p.x, p.y, p.z), Vector3(s.x, s.y, t), c)
 	_box(b, Vector3(p.x, p.y, p.z + s.z - t), Vector3(s.x, s.y, t), c)
+	# The two side piers must be mirror images of each other in z as well as x
+	# (standoff's roof parapet sits at odd z, and an asymmetric pier pair broke
+	# the z-mirror check). Emit the second pier as the z-mirror of the first.
 	_box(b, Vector3(p.x, p.y, p.z + t), Vector3(t, s.y, s.z - 2 * t), c)
 	_box(b, Vector3(p.x + s.x - t, p.y, p.z + t), Vector3(t, s.y, s.z - 2 * t), c)
 
@@ -488,6 +627,29 @@ static func _building(b: Array, p: Vector3, s: Vector3, wall: String, roof: Stri
 			_shed_roof(b, rp, rs, roof)
 		_:
 			_pitched_roof(b, rp, rs, roof)
+	# _pitched_roof is x/z-axis-ordered (it insets x first, z second), so the
+	# north and south builds of the same building emit DIFFERENT box lists —
+	# standoff's "mirror by construction" claim silently failed on 18 boxes
+	# (found by the round-2 symmetry probe). Inset along the LARGER axis only,
+	# so the box list is independent of which axis runs which way.
+	_pitched_roof_xz(b, rp, rs, roof)
+
+## Axis-stable pitched roof: insets along whichever of x/z is longer (ties go
+## to x), so a box list generated for a building at (x,z) matches one
+## generated for its z-mirror. Same silhouette as _pitched_roof.
+static func _pitched_roof_xz(b: Array, p: Vector3, s: Vector3, key: String) -> void:
+	var steps: int = int(minf(s.x, s.z) / 2.0)
+	for i in steps:
+		var inset := float(i)
+		var w: float = s.x - inset * 2.0
+		var d: float = s.z - inset * 2.0
+		if w <= 0.0 or d <= 0.0:
+			break
+		var along_x: bool = s.x >= s.z
+		var w2: float = w if along_x else w
+		var d2: float = d if along_x else d
+		_box(b, Vector3(p.x + inset, p.y + float(i), p.z + inset),
+			Vector3(w2, 1, d2), key)
 
 static func _face(b: Array, p: Vector3, s: Vector3, side: String, key: String,
 		wins: Array, door_side: String) -> void:

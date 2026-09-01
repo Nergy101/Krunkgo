@@ -260,7 +260,10 @@ func _pick_roam_point() -> Vector3:
 	# entire 14-second measurement at 0% engagement wandering spawn points,
 	# which no populated lobby looks like.
 	if Game.rng.randf() < 0.5:
-		var live: Array = Game.actors.filter(func(a): return a != self and a.alive)
+		# In TDM, roam toward the ENEMY side, never a teammate.
+		var live: Array = Game.actors.filter(func(a):
+			return a != self and a.alive \
+				and (not Game.is_tdm() or a.team != team))
 		if not live.is_empty():
 			var other: Actor = live[Game.rng.randi() % live.size()]
 			return other.global_position

@@ -115,7 +115,7 @@ bench: import ## frame timings as JSON, vsync off, full bot fight
 shots: import ## fixed-angle map screenshots into shots/$(ROUND)
 	@$(GODOT) --path . --resolution $(RES) -- shots=res://shots/$(ROUND) shotset=map seed=$(SEED) 2>&1 | grep -E '^SHOT'
 
-probes: movetest bottest hittest classtest ## run every measurement probe
+probes: movetest bottest hittest classtest menutest ## run every measurement probe
 
 movetest: import ## movement envelope: slide-hop gain, strafe bonus, wall-jump
 	@$(GODOT) --path . --resolution 1280x720 -- movetest seed=$(SEED) 2>&1 | grep -E '^MOVETEST'
@@ -128,6 +128,12 @@ hittest: import ## hit registration: shots-to-kill, falloff, first-shot accuracy
 
 classtest: import ## class-select state machine, including returning control
 	@$(GODOT) --path . --resolution 1280x720 -- classtest seed=$(SEED) 2>&1 | grep -E '^CLASSTEST'
+
+menutest: import ## start-menu -> Play transition, settings reach Tuning
+	@$(GODOT) --path . --resolution 1280x720 -- menutest seed=$(SEED) 2>&1 | grep -E '^MENUTEST'
+
+round2test: import ## round-2 gap-closure regression: menu keyboard nav, map-swap match reset, team spawns
+	@$(GODOT) --path . --resolution 1280x720 -- round2test seed=$(SEED) 2>&1 | grep -E '^ROUND2TEST'
 
 ## ---------------------------------------------------------------- cleaning
 

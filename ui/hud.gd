@@ -183,9 +183,13 @@ func _draw_match_chip() -> void:
 	root.draw_rect(Rect2(Vector2(22, 18), Vector2(w, 42)), PANEL)
 	root.draw_rect(Rect2(Vector2(22, 18), Vector2(4, 42)), ACCENT)
 	_text(Vector2(38, 50), clock, 34, WHITE)
-	_text(Vector2(24, 76), "FREE FOR ALL", 16, WHITE)
-	_text(Vector2(24, 94), "on BURG", 15, DIM)
-	_text(Vector2(24, 122), "%d / %d" % [my_kills, Tuning.score_limit], 20, ACCENT)
+	_text(Vector2(24, 76), Game.mode_name(), 16, WHITE)
+	_text(Vector2(24, 94), "on " + MapData.map_display(), 15, DIM)
+	if Game.is_tdm():
+		_text(Vector2(24, 122), "BLUE %d | %d RED" % [
+			Game.team_total(Game.TEAM_BLUE), Game.team_total(Game.TEAM_RED)], 20, ACCENT)
+	else:
+		_text(Vector2(24, 122), "%d / %d" % [my_kills, Tuning.score_limit], 20, ACCENT)
 
 ## Four dashes, wide gap, no centre dot. The gap tracks real weapon spread, so
 ## the crosshair doubles as the accuracy readout.
@@ -402,6 +406,12 @@ func _draw_damage_dirs(c: Vector2) -> void:
 			tip, c + out * 104.0 + tan * 26.0, c + out * 104.0 - tan * 26.0]), col)
 
 func _draw_scoreboard(size: Vector2) -> void:
+	if Game.is_tdm():
+		_draw_tdm_scoreboard(size)
+	else:
+		_draw_ffa_scoreboard(size)
+
+func _draw_ffa_scoreboard(size: Vector2) -> void:
 	var board := Game.leaderboard()
 	var w := 480.0
 	var h: float = 64.0 + board.size() * 30.0
@@ -421,4 +431,45 @@ func _draw_scoreboard(size: Vector2) -> void:
 		_text(pos + Vector2(20, y), String(row["name"]), 19, col)
 		_text(pos + Vector2(w - 130, y), str(row["kills"]), 19, col)
 		_text(pos + Vector2(w - 60, y), str(row["deaths"]), 19, col)
+		y += 30.0
+
+## TDM scoreboard: two side-by-side team columns (blue friendlies, red
+## opponents), each with its own total and per-player K/D rows.
+func _draw_tdm_scoreboard(size: Vector2) -> void:
+	var board := Game.leaderboard()
+	var blue: Array = []
+	var red: Array = []
+	for row in board:
+		if int(row["team"]) == Game.TEAM_BLUE:
+			blue.append(row)
+		else:
+			red.append(row)
+	var rows: int = maxi(blue.size(), red.size())
+	var w := 820.0
+	var h: float = 120.0 + rows * 30.0
+	var pos := Vector2((size.x - w) * 0.5, (size.y - h) * 0.38)
+	root.draw_rect(Rect2(pos, Vector2(w, h)), Color(0.03, 0.04, 0.06, 0.86))
+	root.draw_rect(Rect2(pos, Vector2(w, 4)), ACCENT)
+	var colw := w * 0.5
+	_text(pos + Vector2(20, 38), "BLUE", 22, Blockman.TEAM_BLUE)
+	_text(pos + Vector2(colw + 20, 38), "RED", 22, Blockman.TEAM_RED)
+	_text(pos + Vector2(20, 66), "TEAM %d" % Game.team_total(Game.TEAM_BLUE), 18,
+		Color(1, 1, 1, 0.75))
+	_text(pos + Vector2(colw + 20, 66), "TEAM %d" % Game.team_total(Game.TEAM_RED), 18,
+		Color(1, 1, 1, 0.75))
+	for cx in [0.0, colw]:
+		_text(pos + Vector2(cx + colw - 130, 38), "K", 18, DIM)
+		_text(pos + Vector2(cx + colw - 60, 38), "D", 18, DIM)
+	var y := 94.0
+	for i in rows:
+		for t in [blue, red]:
+			if i >= t.size():
+				continue
+			var row: Dictionary = t[i]
+			var mine: bool = String(row["name"]) == "YOU"
+			var col: Color = ACCENT if mine else WHITE
+			var x := 20.0 if t == blue else colw + 20.0
+			_text(pos + Vector2(x, y), String(row["name"]), 19, col)
+			_text(pos + Vector2(x + colw - 150, y), str(row["kills"]), 19, col)
+			_text(pos + Vector2(x + colw - 80, y), str(row["deaths"]), 19, col)
 		y += 30.0

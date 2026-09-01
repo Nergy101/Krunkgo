@@ -66,7 +66,7 @@ func _ready() -> void:
 		exclude_rids.append(h.get_rid())
 
 	health = Tuning.max_health
-	Game.register_actor(display_name)
+	Game.register_actor(display_name, team)
 
 ## Zones come straight from Blockman.ZONES, so what you see really is what you
 ## hit. The previous version positioned three boxes by eyeballed ratios of
@@ -123,6 +123,12 @@ func protected() -> bool:
 func apply_damage(amount: float, attacker: Actor, zone: int, _hit_pos: Vector3) -> bool:
 	if not alive or protected():
 		return false
+	# Team Deathmatch: shots between teammates deal no damage. The bots already
+	# avoid targeting their own team; this is the safety net that also stops a
+	# friendly player from hurting their own side.
+	if Game.is_tdm() and is_instance_valid(attacker) and attacker != self \
+			and attacker.team == team:
+		return false
 	health -= amount
 	last_hurt_time = float(Time.get_ticks_msec()) / 1000.0
 	var from_dir := Vector3.FORWARD
@@ -165,6 +171,22 @@ func respawn(pos: Vector3) -> void:
 	if weapon:
 		weapon.refill()
 	health_changed.emit(health)
+
+## Re-team and re-colour an actor, rebuilding the body mesh so the change is
+## visible immediately. Used on map swap (into or out of Team Deathmatch) where
+## actors already exist with bodies built from their old tint. Hitboxes are a
+## separate node and are untouched.
+func set_team_and_tint(t: int, c: Color) -> void:
+	team = t
+	if c != tint and body_root:
+		var old: Node3D = body_root
+		body_root = Blockman.build(c)
+		add_child(body_root)
+		old.free()
+		if self is Player:
+			hide_body_from_own_camera()
+	tint = c
+	Game.register_actor(display_name, team)
 
 func _regen(delta: float) -> void:
 	var now := float(Time.get_ticks_msec()) / 1000.0

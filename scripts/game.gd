@@ -21,6 +21,20 @@ signal announce(text: String, kind: String)
 
 const TEAM_PLAYER := 0
 const TEAM_BOT := 1
+const TEAM_BLUE := 0   # Team Deathmatch: friendlies are always blue
+const TEAM_RED := 1    # opponents always red
+
+## Game mode is derived from the map: the symmetric standoff arena is a Team
+## Deathmatch, Burg is Free For All. Kept as a function (not state) so a mode
+## can never drift from the map it is played on.
+func is_tdm() -> bool:
+	return MapData.mode() == "tdm"
+
+func mode_name() -> String:
+	return "TEAM DEATHMATCH" if is_tdm() else "FREE FOR ALL"
+
+func mode_short() -> String:
+	return "TDM" if is_tdm() else "FFA"
 
 # Seconds between two kills by the same attacker that still counts as one
 # chained "multi-kill" (Krunker: Double/Triple/Multi/Mega Kill).
@@ -53,11 +67,26 @@ func reset_match() -> void:
 	score_changed.emit()
 	match_started.emit()
 
-func register_actor(actor_name: String) -> void:
+func register_actor(actor_name: String, team: int = 0) -> void:
 	if not scores.has(actor_name):
 		scores[actor_name] = {"kills": 0, "deaths": 0, "streak": 0,
-			"multi_kills": 0, "last_kill_time": -999.0}
+			"multi_kills": 0, "last_kill_time": -999.0, "team": team}
 		score_changed.emit()
+	elif int(scores[actor_name].get("team", 0)) != team:
+		# Team is authored on spawn; a bot whose team changed (map swap into or
+		# out of TDM) must be re-scored under the new team or totals go wrong.
+		scores[actor_name]["team"] = team
+		score_changed.emit()
+
+func team_of(actor_name: String) -> int:
+	return int(scores.get(actor_name, {}).get("team", 0))
+
+func team_total(team: int) -> int:
+	var n := 0
+	for k in scores:
+		if int(scores[k].get("team", 0)) == team:
+			n += int(scores[k].get("kills", 0))
+	return n
 
 func report_kill(attacker: String, victim: String, weapon: String, headshot: bool) -> void:
 	register_actor(attacker)
@@ -77,8 +106,14 @@ func report_kill(attacker: String, victim: String, weapon: String, headshot: boo
 	scores[victim]["streak"] = 0
 	kill_registered.emit(attacker, victim, weapon, headshot)
 	score_changed.emit()
-	if running and scores[attacker]["kills"] >= Tuning.score_limit:
-		end_match()
+	if running:
+		# In TDM a team wins when its total kills reach the limit; in FFA the
+		# individual does.
+		if is_tdm():
+			if team_total(int(scores[attacker]["team"])) >= Tuning.score_limit:
+				end_match()
+		elif scores[attacker]["kills"] >= Tuning.score_limit:
+			end_match()
 
 ## Center-screen callout for the LOCAL player's own kills only — bot-on-bot
 ## fights already read through the killfeed, a banner for every one of them
@@ -113,6 +148,9 @@ func end_match() -> void:
 
 ## Who actually won, announced the moment the scoreboard takes over the screen.
 func _announce_result() -> void:
+	if is_tdm():
+		_announce_tdm_result()
+		return
 	var board := leaderboard()
 	if board.is_empty():
 		return
@@ -127,10 +165,22 @@ func _announce_result() -> void:
 	else:
 		announce.emit("MATCH OVER — %s WINS" % String(top["name"]), "match")
 
+## TDM crowns the team, not a player. The local player is always blue.
+func _announce_tdm_result() -> void:
+	var blue := team_total(TEAM_BLUE)
+	var red := team_total(TEAM_RED)
+	if blue == red:
+		announce.emit("MATCH OVER — DRAW", "match")
+	elif blue > red:
+		announce.emit("MATCH OVER — BLUE TEAM WINS", "match")
+	else:
+		announce.emit("MATCH OVER — RED TEAM WINS", "match")
+
 func leaderboard() -> Array:
 	var rows: Array = []
 	for k in scores.keys():
-		rows.append({"name": k, "kills": scores[k]["kills"], "deaths": scores[k]["deaths"]})
+		rows.append({"name": k, "kills": scores[k]["kills"], "deaths": scores[k]["deaths"],
+			"team": int(scores[k].get("team", 0))})
 	rows.sort_custom(func(a, b):
 		if a["kills"] == b["kills"]:
 			return a["deaths"] < b["deaths"]

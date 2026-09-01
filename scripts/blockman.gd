@@ -61,6 +61,14 @@ static func team_tint(index: int) -> Color:
 	]
 	return TINTS[index % TINTS.size()]
 
+## Team Deathmatch colours. Friendlies are always blue, opponents always red,
+## regardless of the per-bot tints FFA uses. `team` 0 = blue, 1 = red.
+const TEAM_BLUE := Color8(62, 118, 214)
+const TEAM_RED := Color8(216, 62, 48)
+
+static func team_color(team: int) -> Color:
+	return TEAM_BLUE if team == 0 else TEAM_RED
+
 ## Damage zones, derived from the box geometry built above rather than guessed.
 ## Head sits at 1.52 with a 0.42 cube plus a 0.10 cap; the torso pivot is at
 ## 1.02 with a 0.62x0.72x0.34 box; arms hang from 1.32 and legs from 0.66.

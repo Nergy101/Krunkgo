@@ -23,7 +23,13 @@ var class_id: String = "trigger"
 
 func _ready() -> void:
 	display_name = "YOU"
-	tint = Color8(228, 232, 238)
+	# In Team Deathmatch the local player is always on the blue team and wears
+	# blue; set it here, before super._ready() builds the body from tint.
+	if Game.is_tdm():
+		team = Game.TEAM_BLUE
+		tint = Blockman.team_color(Game.TEAM_BLUE)
+	else:
+		tint = Color8(228, 232, 238)
 	super._ready()
 	hide_body_from_own_camera()
 

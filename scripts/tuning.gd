@@ -162,5 +162,6 @@ func _setup_input() -> void:
 	_bind("next_weapon", [_key(KEY_Q)])
 	_bind("scoreboard", [_key(KEY_TAB)])
 	_bind("ui_pause", [_key(KEY_ESCAPE)])
+	_bind("ui_map_next", [_key(KEY_M)])
 	_bind("debug_toggle", [_key(KEY_F3)])
 	_bind("restart", [_key(KEY_F5)])

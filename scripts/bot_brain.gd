@@ -69,6 +69,9 @@ func _pick_target(candidates: Array) -> Actor:
 		var a := c as Actor
 		if a == null or a == bot or not a.alive or a.protected():
 			continue
+		# Team Deathmatch: never engage a teammate.
+		if Game.is_tdm() and a.team == bot.team:
+			continue
 		var to: Vector3 = a.eye_position() - eye
 		var d := to.length()
 		if d > Tuning.bot_sight_range:
