@@ -28,6 +28,16 @@ func _ready() -> void:
 	checks["bot_count applied"] = Tuning.bot_count == 3
 	checks["difficulty applied"] = Tuning.bot_aim_error_deg > 8.0
 	checks["map selection applied"] = MapData.map_id == "standoff"
+	# Team-size semantics: the knob is per-team in TDM (lobby = 2x + you) and
+	# a plain bot count in FFA (lobby = x + you).
+	checks["tdm lobby is 2x+1"] = menu._lobby_size() == 7
+	checks["tdm row reads per-team"] = "LOBBY" in menu._row_value(2)
+	menu.map_index = 0                   # back to BURG / FFA
+	menu._apply_settings()
+	checks["ffa lobby is x+1"] = menu._lobby_size() == 4
+	checks["ffa row reads plain count"] = menu._row_value(2) == "3"
+	menu.map_index = 1                   # restore STANDOFF for the Play branch
+	menu._apply_settings()
 
 	# Press Play: unpause, spawn bots, bring the HUD back, open the picker.
 	# The chosen map differs from the boot-built one, so the arena is rebuilt.

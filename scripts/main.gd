@@ -102,7 +102,7 @@ func _ready() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Headless probes self-register under a flag. Guarded by ResourceLoader so a
 	# probe file that does not exist yet is simply skipped.
-	for probe in ["movetest", "bottest", "hittest", "classtest", "menutest", "round2test"]:
+	for probe in ["movetest", "bottest", "hittest", "classtest", "menutest", "round2test", "r2mouse"]:
 		var path := "res://scripts/%s.gd" % probe
 		if Harness.want(probe) and ResourceLoader.exists(path):
 			add_child(load(path).new())

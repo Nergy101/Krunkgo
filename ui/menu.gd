@@ -25,7 +25,13 @@ const ROW_GAP := 18.0
 
 const DIFFICULTIES := ["EASY", "NORMAL", "HARD"]
 const MAX_BOTS := 12               # BOT_NAMES has 12 entries in main.gd
+const MAX_PER_TEAM := 6            # TDM: bots split across two teams
 const MAPS := ["burg", "standoff"] # ids MapData understands
+
+## Chunky synthesised 5x7 display face (ui/pixel_font.gd) — replaces the
+## fallback font for the title, headers and setting values, which is what
+## gives Krunker's menus their identity (round-2 critic's biggest gap).
+const PixelFace := preload("res://ui/pixel_font.gd")
 
 var root: Control
 var font: Font
@@ -146,9 +152,17 @@ func _row_value(i: int) -> String:
 	match i:
 		0: return MapData.map_display() + " · " + Game.mode_short()
 		1: return String(DIFFICULTIES[difficulty_index])
-		2: return str(bot_count)
+		# The one knob, two meanings: in Team Deathmatch it is the size of
+		# EACH team's bot squad (total lobby = 2x + you); in FFA it is the
+		# plain bot count. The label spells this out so the number is honest.
+		2: return "%d  (LOBBY %d)" % [bot_count, _lobby_size()] if Game.is_tdm() else str(bot_count)
 		3: return "%d MIN" % match_minutes
 		_: return str(score_limit)
+
+## Total actors that will spawn: TDM = bots per team x 2 + the player;
+## FFA = bots + the player. BOT_NAMES has 12 entries, so clamp at 6 per team.
+func _lobby_size() -> int:
+	return bot_count * 2 + 1 if Game.is_tdm() else bot_count + 1
 
 
 func _build_elements(size: Vector2) -> void:
@@ -268,7 +282,9 @@ func _step(row: int, dir: int) -> void:
 	match row:
 		0: map_index = wrapi(map_index + dir, 0, MAPS.size())
 		1: difficulty_index = wrapi(difficulty_index + dir, 0, DIFFICULTIES.size())
-		2: bot_count = clampi(bot_count + dir, 1, MAX_BOTS)
+		# Clamp tighter in TDM: bots are split across two teams and BOT_NAMES
+		# only has 12 entries, so at most 6 per team.
+		2: bot_count = clampi(bot_count + dir, 1, MAX_PER_TEAM if Game.is_tdm() else MAX_BOTS)
 		3: match_minutes = clampi(match_minutes + dir, 1, 10)
 		4: score_limit = clampi(score_limit + dir * 10, 10, 100)
 	_apply_settings()
@@ -292,6 +308,21 @@ func _text(pos: Vector2, s: String, size_px: int, col: Color,
 		root.draw_string(font, p + d * 2.0, s, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size_px,
 			Color(0, 0, 0, 0.9))
 	root.draw_string(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size_px, col)
+
+## Draw a string in the pixel display face. `px` is the cell size; cap height
+## is 7*px. Same 4-direction shadow as _text, then a per-cell fill in `col`.
+func _pixel_text(pos: Vector2, s: String, px: int, col: Color,
+		align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
+	var w := PixelFace.measure(s) * px
+	var p := pos
+	if align == HORIZONTAL_ALIGNMENT_CENTER:
+		p.x -= w * 0.5
+	elif align == HORIZONTAL_ALIGNMENT_RIGHT:
+		p.x -= w
+	for d in [Vector2(-px, -px), Vector2(px, -px), Vector2(-px, px), Vector2(px, px)]:
+		PixelFace.draw(func(r: Rect2): root.draw_rect(Rect2(r.position + d, r.size),
+			Color(0, 0, 0, 0.9)), p, s, px)
+	PixelFace.draw(func(r: Rect2): root.draw_rect(r, col), p, s, px)
 
 
 ## The classic Minecraft button: flat gray fill + white text, flipping to a
@@ -331,7 +362,7 @@ func _draw_ui() -> void:
 	root.draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.05, 0.07, 0.78))
 
 	if screen == Screen.MAIN:
-		_draw_title(size, "BLOCKSHOT", 88, size.y * 0.28)
+		_draw_title(size, "BLOCKSHOT", 9, size.y * 0.28)
 		var rects := _main_rects(size)
 		var labels := ["PLAY", "SETTINGS", "QUIT GAME"]
 		for i in 3:
@@ -343,20 +374,20 @@ func _draw_ui() -> void:
 			HORIZONTAL_ALIGNMENT_CENTER)
 		return
 
-	_draw_title(size, "SETTINGS", 56, size.y * 0.18)
+	_draw_title(size, "SETTINGS", 5, size.y * 0.18)
 	var rows := _settings_rows(size)
-	var labels := ["MAP", "BOT DIFFICULTY", "BOT COUNT", "MATCH LENGTH", "SCORE LIMIT"]
+	var labels := ["MAP", "BOT DIFFICULTY", "BOTS PER TEAM", "MATCH LENGTH", "SCORE LIMIT"]
 	for i in 5:
 		var r: Rect2 = rows[i]
 		root.draw_rect(Rect2(r.position + Vector2(3, 3), r.size), Color(0, 0, 0, 0.35))
 		root.draw_rect(r, Color(0.06, 0.08, 0.10, 0.6))
-		_text(r.position + Vector2(20, ROW_H * 0.5 + 9), labels[i], 24, Color(1, 1, 1, 0.92))
+		_text(r.position + Vector2(20, r.size.y * 0.5 + 9), labels[i], 24, Color(1, 1, 1, 0.92))
 		var geo := _stepper_geo(r, _row_value(i))
 		var hot_left: bool = hovered >= 0 and _buttons[hovered]["rect"] == geo["left"]
 		var hot_right: bool = hovered >= 0 and _buttons[hovered]["rect"] == geo["right"]
 		_draw_arrow(geo["left"], "<", hot_left)
 		_draw_arrow(geo["right"], ">", hot_right)
-		_text(Vector2(geo["vx"], r.position.y + ROW_H * 0.5 + 9), _row_value(i), 26,
+		_text(Vector2(geo["vx"], r.position.y + r.size.y * 0.5 + 9), _row_value(i), 26,
 			Color8(255, 196, 66))
 	var back := _back_rect(size)
 	var back_idx: int = _buttons.size() - 1
@@ -366,7 +397,9 @@ func _draw_ui() -> void:
 
 
 func _draw_title(size: Vector2, s: String, px: int, cy: float) -> void:
-	# chunky drop shadow behind the white logo text
-	_text(Vector2(size.x * 0.5 + 7, cy + 8), s, px, Color(0, 0, 0, 0.85),
+	# Pixel display face: blocky white logo over a hard black slab shadow.
+	# `px` is the cell size (cap height is 7*px): 9 -> 63px logo, 5 -> 35px header.
+	_pixel_text(Vector2(size.x * 0.5 + px * 1.5, cy + px), s, px, Color(0, 0, 0, 0.85),
 		HORIZONTAL_ALIGNMENT_CENTER)
-	_text(Vector2(size.x * 0.5, cy), s, px, Color(1, 1, 1), HORIZONTAL_ALIGNMENT_CENTER)
+	_pixel_text(Vector2(size.x * 0.5, cy), s, px, Color(1, 1, 1),
+		HORIZONTAL_ALIGNMENT_CENTER)

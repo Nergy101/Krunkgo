@@ -16,6 +16,8 @@ func _ready() -> void:
 		menu.screen = MainMenu.Screen.MAIN
 		menu.active = true
 		menu._build_elements(menu.get_viewport().get_visible_rect().size)
+		menu.hovered = -1        # start from no selection, like a fresh menu
+		menu._keyboard_nav = false
 		# simulate DOWN key through the same path _input uses
 		var ev := InputEventKey.new()
 		ev.keycode = KEY_DOWN
